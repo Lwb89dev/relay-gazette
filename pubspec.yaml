@@ -1,0 +1,130 @@
+name: relay_gazette
+description: "The Relay Gazette — a personal, automatically generated newspaper built from Nostr."
+# The following line prevents the package from being accidentally published to
+# pub.dev using `flutter pub publish`. This is preferred for private packages.
+publish_to: 'none' # Remove this line if you wish to publish to pub.dev
+
+# The following defines the version and build number for your application.
+# A version number is three numbers separated by dots, like 1.2.43
+# followed by an optional build number separated by a +.
+# Both the version and the builder number may be overridden in flutter
+# build by specifying --build-name and --build-number, respectively.
+# In Android, build-name is used as versionName while build-number used as versionCode.
+# Read more about Android versioning at https://developer.android.com/studio/publish/versioning
+# In iOS, build-name is used as CFBundleShortVersionString while build-number is used as CFBundleVersion.
+# Read more about iOS versioning at
+# https://developer.apple.com/library/archive/documentation/General/Reference/InfoPlistKeyReference/Articles/CoreFoundationKeys.html
+# In Windows, build-name is used as the major, minor, and patch parts
+# of the product and file versions while build-number is used as the build suffix.
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.12.2
+
+# Dependencies specify other packages that your package needs in order to work.
+# To automatically upgrade your package dependencies to the latest versions
+# consider running `flutter pub upgrade --major-versions`. Alternatively,
+# dependencies can be manually updated by changing the version numbers below to
+# the latest version available on pub.dev. To see which dependencies have newer
+# versions available, run `flutter pub outdated`.
+dependencies:
+  flutter:
+    sdk: flutter
+
+  # The following adds the Cupertino Icons font to your application.
+  # Use with the CupertinoIcons class for iOS style icons.
+  cupertino_icons: ^1.0.8
+  ndk: ^0.7.1
+  flutter_riverpod: ^3.4.2
+  shared_preferences: ^2.5.5
+  intl: ^0.20.3
+  cached_network_image: ^3.4.1
+  drift: ^2.34.3
+  path_provider: ^2.1.6
+  path: ^1.9.1
+  drift_flutter: ^0.3.1
+  uuid: ^4.6.0
+  web_socket_channel: ^3.0.3
+  http: ^1.6.0
+  url_launcher: ^6.3.2
+  flutter_markdown_plus: ^1.0.12
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+
+  # The "flutter_lints" package below contains a set of recommended lints to
+  # encourage good coding practices. The lint set provided by the package is
+  # activated in the `analysis_options.yaml` file located at the root of your
+  # package. See that file for information about deactivating specific lint
+  # rules and activating additional ones.
+  flutter_lints: ^6.0.0
+  drift_dev: ^2.34.0
+  flutter_launcher_icons: ^0.14.4
+  build_runner: ^2.15.1
+  flutter_native_splash: ^2.4.8
+
+# For information on the generic Dart part of this file, see the
+# following page: https://dart.dev/tools/pub/pubspec
+
+# The following section is specific to Flutter packages.
+flutter:
+
+  # The following line ensures that the Material Icons font is
+  # included with your application, so that you can use the icons in
+  # the material Icons class.
+  uses-material-design: true
+
+  assets:
+    - assets/icons/icon.png
+    - assets/textures/paper_grain.png
+
+  # Editorial typeface pairing: Playfair Display for the masthead/headlines,
+  # Source Serif 4 for body copy, Inter for UI chrome. All OFL-1.1 licensed,
+  # bundled locally (see assets/fonts/LICENSE-*.txt) so reading never depends
+  # on a network font CDN.
+  fonts:
+    - family: PlayfairDisplay
+      fonts:
+        - asset: assets/fonts/PlayfairDisplay-Variable.ttf
+        - asset: assets/fonts/PlayfairDisplay-Italic-Variable.ttf
+          style: italic
+    - family: SourceSerif4
+      fonts:
+        - asset: assets/fonts/SourceSerif4-Variable.ttf
+        - asset: assets/fonts/SourceSerif4-Italic-Variable.ttf
+          style: italic
+    - family: Inter
+      fonts:
+        - asset: assets/fonts/Inter-Variable.ttf
+    # Masthead-only ("THE RELAY GAZETTE" nameplate). UnifrakturCook — a
+    # Blackletter/Fraktur face, the family 19th-century newspaper mastheads
+    # (Old English style nameplates) actually used — not PlayfairDisplay,
+    # which stays the family for in-body headlines elsewhere. See
+    # assets/fonts/LICENSE-UnifrakturCook.txt for source/license (SIL OFL
+    # 1.1); chosen over Google Fonts' other two Blackletter faces
+    # (UnifrakturMaguntia: too calligraphic/ornate for a masthead read at a
+    # glance; Pirata One: reads as theatrical/pirate rather than editorial)
+    # — see TASKS.md for the full comparison.
+    - family: UnifrakturCook
+      fonts:
+        - asset: assets/fonts/UnifrakturCook-Bold.ttf
+
+# Config for `dart run flutter_native_splash:create`. Colors match
+# GazetteColors.light.paper/dark.paper so the splash hands off to the first
+# frame without a visible flash — the icon itself already has its own paper
+# backdrop baked in, so it's reused as-is rather than needing a cropped
+# variant.
+flutter_native_splash:
+  color: "#F7F2E9"
+  image: assets/icons/icon.png
+  color_dark: "#121212"
+  image_dark: assets/icons/icon.png
+  android_12:
+    color: "#F7F2E9"
+    image: assets/icons/icon.png
+    color_dark: "#121212"
+    image_dark: assets/icons/icon.png
+  android: true
+  ios: false
+  web: false
