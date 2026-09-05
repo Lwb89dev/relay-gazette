@@ -58,6 +58,22 @@ class RelayFeedProvider implements FeedProvider {
   }
 
   @override
+  bool get supportsWebOfTrust => false;
+
+  @override
+  Future<List<Story>> fetchWebOfTrustStories({
+    required NostrPublicKey pubkey,
+    required DateTime since,
+    required DateTime until,
+  }) {
+    throw UnsupportedError(
+      'RelayFeedProvider has no way to compute a Web-of-Trust ranking '
+      'without crawling the follow graph itself. Served by '
+      'PrimalFeedProvider instead.',
+    );
+  }
+
+  @override
   Future<List<NostrList>> fetchLists(NostrPublicKey owner) async {
     final response = await _ndk.requests
         .query(

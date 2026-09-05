@@ -43,3 +43,9 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# Release signing — the store/key passwords live here, never commit it
+android/key.properties
+*.jks
+*.keystore
+*.p12

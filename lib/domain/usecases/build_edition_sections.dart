@@ -27,11 +27,17 @@ class BuildEditionSections {
 
     final byWeightThenRecency = [...qualifyingStories]..sort(_compare);
 
-    if (source == EditionSource.trending) {
+    // Discovery sources (trending, Web of Trust) arrive already ranked by
+    // a server-side algorithm as one coherent feed — splitting that into
+    // "Top Stories" vs. "everything else" would just be re-imposing a
+    // structure the ranking already provided, unlike a reader's own
+    // curated feed (personalNetwork/customList) where that split adds
+    // real information.
+    if (source == EditionSource.trending || source == EditionSource.webOfTrust) {
       return [
         EditionSection(
-          id: 'trending',
-          title: EditionSource.trending.label,
+          id: source == EditionSource.trending ? 'trending' : 'web-of-trust',
+          title: source.label,
           stories: byWeightThenRecency,
         ),
       ];

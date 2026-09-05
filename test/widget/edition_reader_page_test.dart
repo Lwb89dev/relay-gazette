@@ -1,3 +1,4 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -13,6 +14,7 @@ import 'package:relay_gazette/domain/entities/story.dart';
 import 'package:relay_gazette/domain/entities/time_window.dart';
 import 'package:relay_gazette/presentation/edition/edition_providers.dart';
 import 'package:relay_gazette/presentation/edition/edition_reader_page.dart';
+import 'package:relay_gazette/presentation/edition/widgets/fullscreen_image_viewer.dart';
 import 'package:relay_gazette/presentation/edition/widgets/story_blocks.dart';
 import 'package:relay_gazette/presentation/theme/aged_paper_surface.dart';
 import 'package:relay_gazette/presentation/theme/app_theme.dart';
@@ -80,7 +82,15 @@ GazetteEdition _sampleEdition() {
           ),
           _story(
             'second',
-            content: 'A shorter secondary story about something else entirely.',
+            // 'hero' is excluded from the article columns despite its id —
+            // it carries an image, and image posts always go to the wire
+            // (see `_frontPage`). This story has no image and enough body
+            // to actually qualify as an article, so it's the one that
+            // ends up as `layout.hero` / feeds the "Quotation of the Day"
+            // panel in the wide layout.
+            content: 'A genuine secondary article about something else entirely. '
+                'It has a real body that runs on well past the short-note '
+                'threshold, not just a one-liner clipped for the wire column.',
             reactions: 12,
           ),
           _story(
@@ -128,6 +138,7 @@ Story _imageStory(
   String id, {
   int reactions = 0,
   String content = 'a photo worth a thousand likes',
+  List<String> imageUrls = const ['https://example.com/photo.jpg'],
 }) {
   return Story(
     id: id,
@@ -141,7 +152,7 @@ Story _imageStory(
     content: content,
     createdAt: DateTime.utc(2026, 8, 23, 10),
     engagement: EngagementCounts(reactions: reactions),
-    imageUrls: const ['https://example.com/photo.jpg'],
+    imageUrls: imageUrls,
   );
 }
 
@@ -183,6 +194,9 @@ void main() {
       expect(tester.takeException(), isNull);
       expect(find.text('Relay Gazette'), findsOneWidget);
       expect(find.textContaining('Two blocks were mined'), findsOneWidget);
+      // Copied verbatim from a real newspaper masthead template and never
+      // adapted — the app has no real sats total to show here.
+      expect(find.text('0 SATS'), findsNothing);
     },
   );
 
@@ -266,7 +280,7 @@ void main() {
       for (var i = 0; i < 4; i++)
         _story(
           'written-$i',
-          content: 'Written note number $i, all prose.',
+          content: 'Written note number $i is a genuine article. It has a real body that runs on well past the short-note threshold, not just a one-liner clipped for the wire column.',
           reactions: 5,
         ),
     ];
@@ -300,7 +314,7 @@ void main() {
       for (var i = 0; i < 2; i++)
         _story(
           'written-$i',
-          content: 'Written note number $i, all prose.',
+          content: 'Written note number $i is a genuine article. It has a real body that runs on well past the short-note threshold, not just a one-liner clipped for the wire column.',
           reactions: 5,
         ),
       for (var i = 0; i < 8; i++)
@@ -328,6 +342,48 @@ void main() {
       );
     }
   });
+
+  testWidgets(
+    'a short one-liner with no image still lands in Off the Wire, not as an article',
+    (tester) async {
+      await _setViewport(tester, const Size(390, 844));
+
+      final stories = [
+        _story(
+          'gm',
+          content: 'gm nostr, off to touch some grass today',
+          reactions: 50, // outranks the real article; must not matter
+        ),
+        _story(
+          'real-article',
+          content: 'This is a genuine written article with a real headline. '
+              'It has a proper body that runs on well past the short-note '
+              'threshold, unlike a bare one-liner.',
+          reactions: 1,
+        ),
+      ];
+
+      await tester.pumpWidget(_frontPageFor(stories));
+      await tester.pumpAndSettle();
+
+      expect(tester.takeException(), isNull);
+      expect(
+        find.descendant(
+          of: find.byType(BriefsSection),
+          matching: find.textContaining('gm nostr'),
+        ),
+        findsOneWidget,
+        reason: 'a bare one-liner has no body to make an article out of',
+      );
+      expect(
+        find.descendant(
+          of: find.byType(BriefsSection),
+          matching: find.textContaining('This is a genuine written article'),
+        ),
+        findsNothing,
+      );
+    },
+  );
 
   testWidgets('a naked non-image link is omitted from the edition', (
     tester,
@@ -389,4 +445,93 @@ void main() {
       findsOneWidget,
     );
   });
+
+  testWidgets('tapping a story image in Off the Wire opens it full-screen', (tester) async {
+    await _setViewport(tester, const Size(390, 844));
+
+    final stories = [
+      _story('written', content: 'A proper written note with a real, substantial body — plenty of prose here.'),
+      _imageStory('image-one', content: 'a photo worth a thousand likes'),
+    ];
+
+    await tester.pumpWidget(_frontPageFor(stories));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(FullscreenImageViewer), findsNothing);
+
+    await tester.tap(
+      find.descendant(of: find.byType(BriefsSection), matching: find.byType(CachedNetworkImage)).first,
+    );
+    // Not pumpAndSettle: the viewer's loading placeholder is a
+    // CircularProgressIndicator, which animates forever until the image
+    // resolves — there's no real network in this test, so it never does.
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+
+    expect(find.byType(FullscreenImageViewer), findsOneWidget);
+
+    // The explicit close button dismisses it (a bare full-area tap-to-close
+    // gesture is harder to assert reliably here, since `InteractiveViewer`
+    // — needed for pinch-to-zoom — competes for the same tap).
+    await tester.tap(find.byTooltip('Close'));
+    await tester.pump();
+    await tester.pump(const Duration(seconds: 1));
+
+    expect(find.byType(FullscreenImageViewer), findsNothing);
+  });
+
+  testWidgets(
+    'a story with multiple images renders all of them in a swipeable carousel, not just the first',
+    (tester) async {
+      await _setViewport(tester, const Size(390, 844));
+
+      const urls = [
+        'https://example.com/photo-1.jpg',
+        'https://example.com/photo-2.jpg',
+        'https://example.com/photo-3.jpg',
+      ];
+      final stories = [
+        _story('written', content: 'A proper written note with a real, substantial body — plenty of prose here.'),
+        _imageStory('multi-image', imageUrls: urls),
+      ];
+
+      await tester.pumpWidget(_frontPageFor(stories));
+      await tester.pumpAndSettle();
+
+      // `PageView` only builds the current page's item, so all three
+      // images are checked by swiping through, one at a time — this is
+      // exactly what regresses to "only imageUrls.first ever renders" if
+      // the carousel is accidentally reverted to a single image.
+      CachedNetworkImage currentImage() => tester.widget<CachedNetworkImage>(
+            find.descendant(of: find.byType(BriefsSection), matching: find.byType(CachedNetworkImage)),
+          );
+
+      expect(currentImage().imageUrl, urls[0]);
+
+      final pageViewFinder = find.descendant(of: find.byType(BriefsSection), matching: find.byType(PageView));
+      await tester.drag(pageViewFinder, const Offset(-400, 0));
+      await tester.pumpAndSettle();
+      expect(currentImage().imageUrl, urls[1]);
+
+      await tester.drag(pageViewFinder, const Offset(-400, 0));
+      await tester.pumpAndSettle();
+      expect(currentImage().imageUrl, urls[2]);
+
+      // Swipe back to the second image before tapping, so the full-screen
+      // viewer below can be checked against a non-zero initial index.
+      await tester.drag(pageViewFinder, const Offset(400, 0));
+      await tester.pumpAndSettle();
+      expect(currentImage().imageUrl, urls[1]);
+
+      await tester.tap(
+        find.descendant(of: find.byType(BriefsSection), matching: find.byType(CachedNetworkImage)).first,
+      );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+
+      final viewer = tester.widget<FullscreenImageViewer>(find.byType(FullscreenImageViewer));
+      expect(viewer.urls, urls);
+      expect(viewer.initialIndex, 1);
+    },
+  );
 }

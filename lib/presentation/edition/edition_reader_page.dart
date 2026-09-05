@@ -3,7 +3,6 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../domain/entities/edition_summary.dart';
-import '../../domain/entities/edition_source.dart';
 import '../../domain/entities/gazette_edition.dart';
 import '../../domain/entities/story.dart';
 import '../common/state_views.dart';
@@ -204,13 +203,16 @@ int _editionNumber(
   );
 }
 
-/// Image posts always belong in the "Off the Wire" (Wire News) column.
-/// A naked ordinary link is neither an article nor a wire image, so it is
-/// omitted from the printed edition. This is deliberately independent of
-/// ranking: article columns are reserved for text-led stories, and a
-/// NIP-23 article with a cover image follows the same media rule. Which
-/// stories belong to *sections* remains up to `BuildEditionSections`; this
-/// only decides layout.
+/// Image posts and brief one-liners both belong in the "Off the Wire"
+/// (Wire News) column, never in an article slot — a picture with a
+/// caption, or a "gm" with nothing to elaborate on, reads as a wire item,
+/// not a front-page piece. A naked ordinary link is neither an article
+/// nor a wire image, so it stays omitted from the printed edition
+/// entirely. This is deliberately independent of ranking: article columns
+/// are reserved for text-led stories with an actual body, and a NIP-23
+/// article with a cover image follows the same media rule as any other
+/// article. Which stories belong to *sections* remains up to
+/// `BuildEditionSections`; this only decides layout.
 class _FrontPageLayout {
   final Story? hero;
   final String heroKicker;
@@ -240,14 +242,28 @@ _FrontPageLayout _frontPage(GazetteEdition edition) {
   }
 
   final allStories = [for (final section in sections) ...section.stories];
-  // There is intentionally no quota that can promote media back into an
-  // article column. A post containing only a non-image URL is excluded.
+
+  // A plain note with no image still isn't an article if there's nothing
+  // to actually elaborate — `headlineFor` already tells us that: `body ==
+  // null` means the note's whole content fit in the headline itself
+  // (extractHeadline's own definition of "too short to split"). A NIP-23
+  // article is exempt: it's substantial by construction, whether or not
+  // it happens to carry an optional `summary` tag.
+  bool wireOnly(Story s) {
+    if (s.isLongFormArticle) return false;
+    if (s.imageUrls.isNotEmpty) return true;
+    return headlineFor(s).body == null;
+  }
+
+  // There is intentionally no quota that can promote media/brief posts
+  // back into an article column. A post containing only a non-image URL
+  // is excluded from both — it's neither.
   final articles = allStories
-      .where((s) => s.imageUrls.isEmpty && !s.isLinkOnlyPost)
+      .where((s) => !s.isLinkOnlyPost && !wireOnly(s))
       .toList();
   final hero = articles.isNotEmpty ? articles.first : null;
   final secondary = articles.skip(1).toList();
-  final brief = allStories.where((s) => s.imageUrls.isNotEmpty).toList();
+  final brief = allStories.where((s) => !s.isLinkOnlyPost && wireOnly(s)).toList();
 
   var heroKicker = sections.first.title;
   if (hero != null) {
@@ -497,9 +513,7 @@ class _EditionConditions extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final source = edition.source == EditionSource.trending
-        ? 'Trending'
-        : 'Your network';
+    final source = edition.source.label;
     return _RailPanel(
       title: 'EDITION CONDITIONS',
       child: Column(

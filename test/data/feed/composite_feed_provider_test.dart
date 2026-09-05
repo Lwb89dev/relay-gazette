@@ -9,10 +9,18 @@ import 'package:relay_gazette/domain/repositories/feed_provider.dart';
 class _StubFeedProvider implements FeedProvider {
   final String name;
   bool wasCalled = false;
-  _StubFeedProvider(this.name, {this.supportsTrending = false, this.supportsLists = false});
+  _StubFeedProvider(
+    this.name, {
+    this.supportsTrending = false,
+    this.supportsWebOfTrust = false,
+    this.supportsLists = false,
+  });
 
   @override
   final bool supportsTrending;
+
+  @override
+  final bool supportsWebOfTrust;
 
   @override
   final bool supportsLists;
@@ -35,6 +43,16 @@ class _StubFeedProvider implements FeedProvider {
 
   @override
   Future<List<Story>> fetchTrendingStories({required DateTime since, required DateTime until}) async {
+    wasCalled = true;
+    return const [];
+  }
+
+  @override
+  Future<List<Story>> fetchWebOfTrustStories({
+    required NostrPublicKey pubkey,
+    required DateTime since,
+    required DateTime until,
+  }) async {
     wasCalled = true;
     return const [];
   }
@@ -88,6 +106,25 @@ void main() {
     final composite = CompositeFeedProvider(personalNetwork: network, trending: trending);
 
     await composite.fetchTrendingStories(since: since, until: until);
+
+    expect(trending.wasCalled, isTrue);
+    expect(network.wasCalled, isFalse);
+  });
+
+  test('supportsWebOfTrust mirrors the trending delegate', () {
+    final composite = CompositeFeedProvider(
+      personalNetwork: _StubFeedProvider('relay'),
+      trending: _StubFeedProvider('primal', supportsWebOfTrust: true),
+    );
+    expect(composite.supportsWebOfTrust, isTrue);
+  });
+
+  test('fetchWebOfTrustStories goes to the trending delegate only', () async {
+    final network = _StubFeedProvider('relay');
+    final trending = _StubFeedProvider('primal', supportsWebOfTrust: true);
+    final composite = CompositeFeedProvider(personalNetwork: network, trending: trending);
+
+    await composite.fetchWebOfTrustStories(pubkey: pubkey, since: since, until: until);
 
     expect(trending.wasCalled, isTrue);
     expect(network.wasCalled, isFalse);

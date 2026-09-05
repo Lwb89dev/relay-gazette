@@ -32,6 +32,24 @@ abstract class FeedProvider {
     required DateTime until,
   });
 
+  /// Whether [fetchWebOfTrustStories] is meaningfully implemented by this
+  /// provider. A plain relay provider has no way to compute this without
+  /// crawling the follow graph itself.
+  bool get supportsWebOfTrust;
+
+  /// Stories [pubkey]'s wider network — not just their direct follows —
+  /// has engaged with, within `[since, until)`. Distinct from
+  /// [fetchPersonalNetworkStories] (direct follows only, exact contact
+  /// list) and [fetchTrendingStories] (global, no personalization at all):
+  /// this is the practical middle ground reader-facing Nostr apps call
+  /// "Web of Trust". Throws [UnsupportedError] when [supportsWebOfTrust]
+  /// is false.
+  Future<List<Story>> fetchWebOfTrustStories({
+    required NostrPublicKey pubkey,
+    required DateTime since,
+    required DateTime until,
+  });
+
   /// Whether [fetchLists] and [fetchStoriesFromList] are meaningfully
   /// implemented by this provider.
   bool get supportsLists;

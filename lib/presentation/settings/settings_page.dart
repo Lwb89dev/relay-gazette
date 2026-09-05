@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../data/nostr/relay_defaults.dart';
 import '../../domain/entities/reading_preferences.dart';
@@ -40,6 +42,10 @@ class SettingsPage extends ConsumerWidget {
                 _SectionLabel('Relays'),
                 SizedBox(height: 8),
                 _RelaysSection(),
+                SizedBox(height: 32),
+                _SectionLabel('Support'),
+                SizedBox(height: 8),
+                _DonationTile(),
               ],
             ),
           ),
@@ -435,6 +441,74 @@ class _AddRelayField extends ConsumerStatefulWidget {
 
   @override
   ConsumerState<_AddRelayField> createState() => _AddRelayFieldState();
+}
+
+class _DonationTile extends StatelessWidget {
+  static const _lnAddress = 'lwb89@blink.sv';
+  const _DonationTile();
+
+  Future<void> _tap(BuildContext context) async {
+    // Try to hand off to a Lightning wallet directly; fall back to
+    // clipboard, same as Roadstr's identical tile.
+    final uri = Uri.parse('lightning:$_lnAddress');
+    var launched = false;
+    try {
+      launched = await launchUrl(uri, mode: LaunchMode.externalApplication);
+    } catch (_) {
+      launched = false;
+    }
+    if (launched) return;
+
+    await Clipboard.setData(const ClipboardData(text: _lnAddress));
+    if (!context.mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('⚡ $_lnAddress copied to clipboard'),
+        duration: const Duration(seconds: 3),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.gazetteColors;
+    return InkWell(
+      onTap: () => _tap(context),
+      borderRadius: BorderRadius.circular(8),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+        decoration: BoxDecoration(
+          border: Border.all(color: colors.rule),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Row(
+          children: [
+            Icon(Icons.bolt_rounded, color: colors.accent, size: 20),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Support The Relay Gazette',
+                    style: Theme.of(context).textTheme.labelLarge,
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    _lnAddress,
+                    style: Theme.of(
+                      context,
+                    ).textTheme.bodyMedium?.copyWith(color: colors.inkFaded),
+                  ),
+                ],
+              ),
+            ),
+            Icon(Icons.open_in_new_rounded, size: 16, color: colors.accent),
+          ],
+        ),
+      ),
+    );
+  }
 }
 
 class _AddRelayFieldState extends ConsumerState<_AddRelayField> {

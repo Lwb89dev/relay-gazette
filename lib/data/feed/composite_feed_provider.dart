@@ -49,6 +49,25 @@ class CompositeFeedProvider implements FeedProvider {
     return _trending.fetchTrendingStories(since: since, until: until);
   }
 
+  // Web of Trust is a discovery concept like trending (it needs a
+  // server-computed network graph, not the reader's own relay-visible
+  // contact list), so it's served by the same provider.
+  @override
+  bool get supportsWebOfTrust => _trending.supportsWebOfTrust;
+
+  @override
+  Future<List<Story>> fetchWebOfTrustStories({
+    required NostrPublicKey pubkey,
+    required DateTime since,
+    required DateTime until,
+  }) {
+    return _trending.fetchWebOfTrustStories(
+      pubkey: pubkey,
+      since: since,
+      until: until,
+    );
+  }
+
   // Lists are a personal-network concept (NIP-51 sets the reader curates
   // themselves) — always served by the relay-backed provider, regardless
   // of which one handles trending.

@@ -4,7 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'domain/entities/reading_preferences.dart';
 import 'presentation/archive/edition_archive_page.dart';
 import 'presentation/common/state_views.dart';
-import 'presentation/onboarding/npub_entry_page.dart';
+import 'presentation/onboarding/onboarding_flow.dart';
 import 'presentation/providers.dart';
 import 'presentation/theme/app_theme.dart';
 import 'presentation/theme/theme_providers.dart';
@@ -64,7 +64,7 @@ class _StartupGate extends ConsumerWidget {
           onAction: () => ref.invalidate(savedPubkeyProvider),
         ),
       ),
-      data: (pubkey) => pubkey == null ? const NpubEntryPage() : const EditionArchivePage(),
+      data: (pubkey) => pubkey == null ? const OnboardingFlow() : const EditionArchivePage(),
     );
   }
 }

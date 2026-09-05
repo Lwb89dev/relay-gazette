@@ -195,6 +195,11 @@ class _SourceSelector extends StatelessWidget {
           onSelected: (_) => onChanged(EditionSource.trending),
         ),
         ChoiceChip(
+          label: const Text('Web of Trust'),
+          selected: selected == EditionSource.webOfTrust,
+          onSelected: (_) => onChanged(EditionSource.webOfTrust),
+        ),
+        ChoiceChip(
           label: const Text('From a List'),
           selected: selected == EditionSource.customList,
           onSelected: (_) => onChanged(EditionSource.customList),

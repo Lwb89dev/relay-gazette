@@ -16,10 +16,14 @@ class GenerateEdition {
   /// time, so a post from minutes ago is compared unfairly against one from
   /// hours ago in the same window — this stops that from meaning "posted
   /// recently" quietly loses to "posted earlier today". Doesn't apply to
-  /// trending: there, a story's whole reason for being a candidate *is* its
-  /// engagement, measured by Primal's own algorithm — there's no "give it
-  /// more time" grace to extend.
+  /// trending or Web of Trust: for both, a story's whole reason for being a
+  /// candidate *is* engagement Primal already measured server-side — there's
+  /// no "give it more time" grace to extend on top of that.
   static const engagementGracePeriod = Duration(hours: 1);
+
+  /// Discovery sources: the candidate pool itself is already engagement-
+  /// ranked by a server (Primal), unlike a reader's own curated feed.
+  static const _discoverySources = {EditionSource.trending, EditionSource.webOfTrust};
 
   final FeedProvider _feedProvider;
   final BuildEditionSections _sectionBuilder;
@@ -65,6 +69,11 @@ class GenerateEdition {
   ) {
     return switch (configuration.source) {
       EditionSource.trending => _feedProvider.fetchTrendingStories(since: window.start, until: window.end),
+      EditionSource.webOfTrust => _feedProvider.fetchWebOfTrustStories(
+          pubkey: viewer,
+          since: window.start,
+          until: window.end,
+        ),
       EditionSource.personalNetwork => _feedProvider.fetchPersonalNetworkStories(
           pubkey: viewer,
           since: window.start,
@@ -82,7 +91,7 @@ class GenerateEdition {
 
   bool _qualifies(Story story, FilterConfiguration configuration, DateTime generatedAt) {
     if (configuration.thresholds.isSatisfiedBy(story.engagement)) return true;
-    if (configuration.source == EditionSource.trending) return false;
+    if (_discoverySources.contains(configuration.source)) return false;
     return generatedAt.difference(story.createdAt) <= engagementGracePeriod;
   }
 

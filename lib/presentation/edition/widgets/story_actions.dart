@@ -8,6 +8,12 @@ import '../../signing/signing_providers.dart';
 import '../../theme/gazette_colors.dart';
 import '../../wallet/wallet_providers.dart';
 
+// TODO: restore Reply and Repost actions — this file was rewritten
+// elsewhere (a separate, non-assistant session) down to just Heart and
+// Zap; NIP-84 Highlight is restored below since it was explicitly
+// requested again, but Reply/Repost weren't and are left as a known gap
+// rather than reintroduced speculatively.
+
 /// A deliberately small interaction surface: heart a note with a signer,
 /// or zap its author. A zap remains available to read-only readers whenever
 /// the author publishes a Lightning address.
@@ -54,6 +60,28 @@ class StoryActions extends ConsumerWidget {
     final ok = await ref.read(reactToStoryProvider)(story);
     if (context.mounted) {
       _showMessage(context, ok ? 'Reaction sent' : 'Reaction was declined');
+    }
+  }
+
+  /// NIP-84 (Boris' convention — see the reader's own reference,
+  /// github.com/dergigi/boris-android): tags the passage's source note via
+  /// `e` (and `a` too for a long-form article, so the highlight survives
+  /// the article being edited later) plus the original author, all
+  /// already implemented in `CreateHighlight` — this dialog is the one
+  /// piece that went missing when this file was rewritten elsewhere.
+  Future<void> _highlight(BuildContext context, WidgetRef ref) async {
+    if (await _ensureConnected(context, ref) == null) return;
+    if (!context.mounted) return;
+
+    final text = await showDialog<String>(
+      context: context,
+      builder: (_) => _HighlightDialog(initialText: story.content),
+    );
+    if (text == null || text.trim().isEmpty) return;
+
+    final ok = await ref.read(createHighlightProvider)(story, text);
+    if (context.mounted) {
+      _showMessage(context, ok ? 'Highlight saved' : 'Highlight was declined');
     }
   }
 
@@ -119,6 +147,11 @@ class StoryActions extends ConsumerWidget {
           icon: Icons.favorite_border,
           label: 'Heart',
           onTap: () => _react(context, ref),
+        ),
+        _ActionButton(
+          icon: Icons.format_quote_outlined,
+          label: 'Highlight',
+          onTap: () => _highlight(context, ref),
         ),
         if (canZap)
           _ActionButton(
@@ -219,6 +252,55 @@ class _ZapAmountDialogState extends State<_ZapAmountDialog> {
             if (amount != null && amount > 0) Navigator.of(context).pop(amount);
           },
           child: const Text('Zap'),
+        ),
+      ],
+    );
+  }
+}
+
+class _HighlightDialog extends StatefulWidget {
+  final String initialText;
+  const _HighlightDialog({required this.initialText});
+
+  @override
+  State<_HighlightDialog> createState() => _HighlightDialogState();
+}
+
+class _HighlightDialogState extends State<_HighlightDialog> {
+  late final TextEditingController _controller = TextEditingController(text: widget.initialText);
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Highlight'),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text('Trim this down to just the passage worth keeping.'),
+          const SizedBox(height: 12),
+          TextField(
+            controller: _controller,
+            minLines: 3,
+            maxLines: 6,
+            decoration: const InputDecoration(border: OutlineInputBorder()),
+          ),
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Cancel'),
+        ),
+        FilledButton(
+          onPressed: () => Navigator.of(context).pop(_controller.text),
+          child: const Text('Highlight'),
         ),
       ],
     );

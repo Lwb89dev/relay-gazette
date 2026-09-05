@@ -29,9 +29,19 @@ class _RejectKindVerifier implements EventVerifier {
 }
 
 class _FakePrimalCacheClient implements PrimalCacheClient {
+  // Every provider method now makes two calls (one for kind:1 notes, one
+  // for kind:30023 long-form articles) rather than one, so tests that
+  // care about *which* call got *which* params/response inspect [calls]
+  // instead of a single last-call snapshot. `response` (the notes-call
+  // fixture) and `articlesResponse` (the articles-call fixture) default
+  // to empty so existing note-only tests don't get their fixture
+  // double-counted through both calls.
   List<Map<String, dynamic>> response = const [];
-  String? lastFunction;
-  Map<String, dynamic>? lastParams;
+  List<Map<String, dynamic>> articlesResponse = const [];
+  final List<({String function, Map<String, dynamic> params})> calls = [];
+
+  String? get lastFunction => calls.isEmpty ? null : calls.last.function;
+  Map<String, dynamic>? get lastParams => calls.isEmpty ? null : calls.last.params;
 
   @override
   Future<List<Map<String, dynamic>>> fetchCacheEvents(
@@ -39,10 +49,28 @@ class _FakePrimalCacheClient implements PrimalCacheClient {
     Map<String, dynamic> params, {
     Duration timeout = const Duration(seconds: 10),
   }) async {
-    lastFunction = function;
-    lastParams = params;
-    return response;
+    calls.add((function: function, params: params));
+    return calls.length == 1 ? response : articlesResponse;
   }
+}
+
+Map<String, dynamic> _article(
+  String id, {
+  required String pubkey,
+  required int createdAt,
+  String title = '',
+  String content = '',
+}) {
+  return {
+    'id': id,
+    'pubkey': pubkey,
+    'created_at': createdAt,
+    'kind': 30023,
+    'tags': [
+      ['title', title],
+    ],
+    'content': content,
+  };
 }
 
 Map<String, dynamic> _note(
@@ -89,23 +117,27 @@ void main() {
   final since = DateTime.utc(2026, 8, 22);
   final until = DateTime.utc(2026, 8, 23);
 
-  test('requests the global trending explore feed with the resolved window', () async {
+  test('requests the global trending explore feed with the resolved window, '
+      'plus a separate advanced_search call for long-form articles', () async {
     final client = _FakePrimalCacheClient();
     final provider = PrimalFeedProvider(client, verifier: _StubVerifier(true));
 
     await provider.fetchTrendingStories(since: since, until: until);
 
-    expect(client.lastFunction, 'explore');
-    expect(client.lastParams!['scope'], 'global');
-    expect(client.lastParams!['timeframe'], 'trending');
-    expect(client.lastParams!['created_after'], since.millisecondsSinceEpoch ~/ 1000);
+    expect(client.calls, hasLength(2));
+    expect(client.calls[0].function, 'explore');
+    expect(client.calls[0].params['scope'], 'global');
+    expect(client.calls[0].params['timeframe'], 'trending');
+    expect(client.calls[0].params['created_after'], since.millisecondsSinceEpoch ~/ 1000);
+    expect(client.calls[1].function, 'advanced_search');
+    expect(client.calls[1].params['query'], 'kind:30023 since:2026-08-22');
   });
 
   test('joins notes, author metadata, and engagement stats into Stories', () async {
     final client = _FakePrimalCacheClient()
       ..response = [
-        _note('note-1', pubkey: author, createdAt: 1755900000, content: 'hello world'),
-        _metadata(author, createdAt: 1755800000, displayName: 'Alice'),
+        _note('note-1', pubkey: author, createdAt: 1787400000, content: 'hello world'),
+        _metadata(author, createdAt: 1787360400, displayName: 'Alice'),
         _stats('note-1', likes: 42, zapSats: 2100),
       ];
     final provider = PrimalFeedProvider(client, verifier: _StubVerifier(true));
@@ -122,7 +154,7 @@ void main() {
 
   test('a note with no matching stats event gets zero engagement, not a crash', () async {
     final client = _FakePrimalCacheClient()
-      ..response = [_note('note-1', pubkey: author, createdAt: 1755900000)];
+      ..response = [_note('note-1', pubkey: author, createdAt: 1787400000)];
     final provider = PrimalFeedProvider(client, verifier: _StubVerifier(true));
 
     final stories = await provider.fetchTrendingStories(since: since, until: until);
@@ -148,11 +180,11 @@ void main() {
   test('drops thread replies, keeping only standalone top-level notes', () async {
     final client = _FakePrimalCacheClient()
       ..response = [
-        _note('top-level', pubkey: author, createdAt: 1755900000),
+        _note('top-level', pubkey: author, createdAt: 1787400000),
         _note(
           'a-reply',
           pubkey: author,
-          createdAt: 1755900000,
+          createdAt: 1787400000,
           tags: [
             ['e', 'parent-note', '', 'reply'],
           ],
@@ -168,7 +200,7 @@ void main() {
   test('drops notes whose signature does not verify, unlike relay-sourced stories, '
       'nothing here has been checked yet by the time it arrives', () async {
     final client = _FakePrimalCacheClient()
-      ..response = [_note('note-1', pubkey: author, createdAt: 1755900000)];
+      ..response = [_note('note-1', pubkey: author, createdAt: 1787400000)];
     final provider = PrimalFeedProvider(client, verifier: _StubVerifier(false));
 
     final stories = await provider.fetchTrendingStories(since: since, until: until);
@@ -179,8 +211,8 @@ void main() {
   test('drops author metadata whose signature does not verify', () async {
     final client = _FakePrimalCacheClient()
       ..response = [
-        _note('note-1', pubkey: author, createdAt: 1755900000),
-        _metadata(author, createdAt: 1755800000, displayName: 'Alice'),
+        _note('note-1', pubkey: author, createdAt: 1787400000),
+        _metadata(author, createdAt: 1787360400, displayName: 'Alice'),
       ];
     // The note itself is fine; only fabricated *metadata* should be
     // rejected, and the story should fall back to an unknown-author label
@@ -198,7 +230,7 @@ void main() {
     final client = _FakePrimalCacheClient()
       ..response = [
         {'kind': 1, 'this is': 'missing every required NIP-01 field'},
-        _note('good-note', pubkey: author, createdAt: 1755900000),
+        _note('good-note', pubkey: author, createdAt: 1787400000),
       ];
     final provider = PrimalFeedProvider(client, verifier: _StubVerifier(true));
 
@@ -222,5 +254,120 @@ void main() {
       () => provider.resolveViewer(NostrPublicKey.fromHex(author)),
       throwsUnsupportedError,
     );
+  });
+
+  group('fetchWebOfTrustStories', () {
+    test('supportsWebOfTrust is true', () {
+      final provider = PrimalFeedProvider(_FakePrimalCacheClient(), verifier: _StubVerifier(true));
+      expect(provider.supportsWebOfTrust, isTrue);
+    });
+
+    test('requests advanced_search with scope:mynetworkinteractions and a day-granularity '
+        'since: keyword — confirmed live against Primal\'s real cache server that a raw '
+        'unix timestamp there is rejected — plus a separate call for long-form articles', () async {
+      final client = _FakePrimalCacheClient();
+      final provider = PrimalFeedProvider(client, verifier: _StubVerifier(true));
+      final viewer = NostrPublicKey.fromHex(author);
+
+      await provider.fetchWebOfTrustStories(pubkey: viewer, since: since, until: until);
+
+      expect(client.calls, hasLength(2));
+      expect(client.calls[0].function, 'advanced_search');
+      expect(client.calls[0].params['query'], 'kind:1 scope:mynetworkinteractions since:2026-08-22');
+      expect(client.calls[0].params['user_pubkey'], author);
+      expect(client.calls[1].function, 'advanced_search');
+      expect(client.calls[1].params['query'], 'kind:30023 scope:mynetworkinteractions since:2026-08-22');
+      expect(client.calls[1].params['user_pubkey'], author);
+    });
+
+    test('joins notes, author metadata, and engagement stats into Stories, same as trending', () async {
+      final client = _FakePrimalCacheClient()
+        ..response = [
+          _note('note-1', pubkey: author, createdAt: 1787400000, content: 'hello network'),
+          _metadata(author, createdAt: 1787360400, displayName: 'Alice'),
+          _stats('note-1', likes: 7, zapSats: 500),
+        ];
+      final provider = PrimalFeedProvider(client, verifier: _StubVerifier(true));
+
+      final stories = await provider.fetchWebOfTrustStories(
+        pubkey: NostrPublicKey.fromHex(author),
+        since: since,
+        until: until,
+      );
+
+      expect(stories, hasLength(1));
+      final story = stories.single;
+      expect(story.id, 'note-1');
+      expect(story.author.displayName, 'Alice');
+      expect(story.engagement.reactions, 7);
+      expect(story.engagement.zapSats, 500);
+    });
+
+    test('excludes notes published before the window start, not just after the end', () async {
+      final beforeWindow = since.subtract(const Duration(hours: 1)).millisecondsSinceEpoch ~/ 1000;
+      final withinWindow = since.add(const Duration(hours: 1)).millisecondsSinceEpoch ~/ 1000;
+      final client = _FakePrimalCacheClient()
+        ..response = [
+          _note('too-early', pubkey: author, createdAt: beforeWindow),
+          _note('in-window', pubkey: author, createdAt: withinWindow),
+        ];
+      final provider = PrimalFeedProvider(client, verifier: _StubVerifier(true));
+
+      final stories = await provider.fetchWebOfTrustStories(
+        pubkey: NostrPublicKey.fromHex(author),
+        since: since,
+        until: until,
+      );
+
+      expect(stories.map((s) => s.id), ['in-window']);
+    });
+  });
+
+  group('long-form articles (kind:30023), fetched via the second advanced_search call', () {
+    test('fetchTrendingStories includes long-form articles alongside notes', () async {
+      final client = _FakePrimalCacheClient()
+        ..response = [_note('note-1', pubkey: author, createdAt: 1787400000)]
+        ..articlesResponse = [
+          _article('article-1', pubkey: author, createdAt: 1787400000, title: 'A Proper Headline', content: 'Body.'),
+        ];
+      final provider = PrimalFeedProvider(client, verifier: _StubVerifier(true));
+
+      final stories = await provider.fetchTrendingStories(since: since, until: until);
+
+      expect(stories.map((s) => s.id), containsAll(['note-1', 'article-1']));
+      final article = stories.firstWhere((s) => s.id == 'article-1');
+      expect(article.isLongFormArticle, isTrue);
+      expect(article.title, 'A Proper Headline');
+    });
+
+    test('fetchWebOfTrustStories includes long-form articles alongside notes', () async {
+      final client = _FakePrimalCacheClient()
+        ..response = [_note('note-1', pubkey: author, createdAt: 1787400000)]
+        ..articlesResponse = [
+          _article('article-1', pubkey: author, createdAt: 1787400000, title: 'Network Read', content: 'Body.'),
+        ];
+      final provider = PrimalFeedProvider(client, verifier: _StubVerifier(true));
+
+      final stories = await provider.fetchWebOfTrustStories(
+        pubkey: NostrPublicKey.fromHex(author),
+        since: since,
+        until: until,
+      );
+
+      expect(stories.map((s) => s.id), containsAll(['note-1', 'article-1']));
+      final article = stories.firstWhere((s) => s.id == 'article-1');
+      expect(article.isLongFormArticle, isTrue);
+      expect(article.title, 'Network Read');
+    });
+
+    test('an unverifiable article is dropped, same as an unverifiable note', () async {
+      final client = _FakePrimalCacheClient()
+        ..articlesResponse = [_article('article-1', pubkey: author, createdAt: 1787400000, title: 'Fake')];
+      final provider = PrimalFeedProvider(client, verifier: _StubVerifier(false));
+
+      final stories = await provider.fetchTrendingStories(since: since, until: until);
+
+      expect(stories, isEmpty);
+    });
   });
 }

@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
-import '../../../domain/entities/edition_source.dart';
 import '../../../domain/entities/gazette_edition.dart';
 import '../../theme/gazette_colors.dart';
 
@@ -28,9 +27,7 @@ class Masthead extends StatelessWidget {
     final date = DateFormat(
       'EEEE, MMMM d, y',
     ).format(edition.generatedAt.toLocal());
-    final sourceLabel = edition.source == EditionSource.trending
-        ? 'Trending'
-        : 'From Your Network';
+    final sourceLabel = edition.source.label;
 
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -53,13 +50,6 @@ class Masthead extends StatelessWidget {
                   Expanded(
                     child: Text(
                       date.toUpperCase(),
-                      textAlign: TextAlign.center,
-                      style: theme.textTheme.labelSmall,
-                    ),
-                  ),
-                  Expanded(
-                    child: Text(
-                      '0 SATS',
                       textAlign: TextAlign.right,
                       style: theme.textTheme.labelSmall,
                     ),

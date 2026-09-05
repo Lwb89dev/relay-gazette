@@ -7,6 +7,7 @@ import '../../../domain/usecases/story_headline.dart';
 import '../../theme/gazette_colors.dart';
 import '../article_reader_page.dart';
 import 'drop_cap_text.dart';
+import 'fullscreen_image_viewer.dart';
 import 'kicker.dart';
 import 'story_actions.dart';
 import 'story_meta.dart';
@@ -94,7 +95,7 @@ class HeroStoryBlock extends StatelessWidget {
           ByLine(story: story),
           if (story.imageUrls.isNotEmpty) ...[
             const SizedBox(height: 14),
-            _StoryImage(url: story.imageUrls.first, height: 220),
+            _StoryImage(urls: story.imageUrls, height: 220),
             const SizedBox(height: 6),
             Text(
               'Image via ${story.author.label}',
@@ -165,7 +166,7 @@ class StoryBlock extends StatelessWidget {
           ByLine(story: story, avatarRadius: 12),
           if (story.imageUrls.isNotEmpty) ...[
             const SizedBox(height: 10),
-            _StoryImage(url: story.imageUrls.first, height: 150),
+            _StoryImage(urls: story.imageUrls, height: 150),
           ],
           if (showFullContent && story.isLongFormArticle) ...[
             const SizedBox(height: 8),
@@ -254,7 +255,7 @@ class _BriefItem extends StatelessWidget {
           // image actually shows — a wire item with a thumbnail, not just
           // a link buried in the text.
           if (story.imageUrls.isNotEmpty) ...[
-            _StoryImage(url: story.imageUrls.first, height: 120),
+            _StoryImage(urls: story.imageUrls, height: 120),
             const SizedBox(height: 8),
           ],
           if (showFullContent && story.isLongFormArticle)
@@ -357,23 +358,81 @@ class _FullStoryBody extends StatelessWidget {
   }
 }
 
-class _StoryImage extends StatelessWidget {
-  final String url;
+/// One image if that's all a story has; a swipeable carousel (with a dot
+/// page indicator) when there's more than one — previously only
+/// `imageUrls.first` ever rendered at all, silently dropping the rest.
+/// Tapping any page opens the full-screen viewer already on that image.
+class _StoryImage extends StatefulWidget {
+  final List<String> urls;
   final double height;
-  const _StoryImage({required this.url, required this.height});
+  const _StoryImage({required this.urls, required this.height});
+
+  @override
+  State<_StoryImage> createState() => _StoryImageState();
+}
+
+class _StoryImageState extends State<_StoryImage> {
+  final _controller = PageController();
+  int _index = 0;
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     return ClipRRect(
       borderRadius: BorderRadius.circular(2),
-      child: CachedNetworkImage(
-        imageUrl: url,
-        fit: BoxFit.cover,
-        width: double.infinity,
-        height: height,
-        placeholder: (context, url) =>
-            Container(height: height, color: context.gazetteColors.paperMuted),
-        errorWidget: (context, url, error) => const SizedBox.shrink(),
+      child: SizedBox(
+        height: widget.height,
+        child: Stack(
+          alignment: Alignment.bottomCenter,
+          children: [
+            PageView.builder(
+              controller: _controller,
+              itemCount: widget.urls.length,
+              onPageChanged: (index) => setState(() => _index = index),
+              itemBuilder: (context, index) {
+                final url = widget.urls[index];
+                return GestureDetector(
+                  onTap: () => Navigator.of(context).push(
+                    FullscreenImageViewer.route(widget.urls, initialIndex: index),
+                  ),
+                  child: CachedNetworkImage(
+                    imageUrl: url,
+                    fit: BoxFit.cover,
+                    width: double.infinity,
+                    height: widget.height,
+                    placeholder: (context, url) =>
+                        Container(color: context.gazetteColors.paperMuted),
+                    errorWidget: (context, url, error) => const SizedBox.shrink(),
+                  ),
+                );
+              },
+            ),
+            if (widget.urls.length > 1)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 6),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    for (var i = 0; i < widget.urls.length; i++)
+                      Container(
+                        margin: const EdgeInsets.symmetric(horizontal: 2),
+                        width: 6,
+                        height: 6,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: Colors.white.withValues(alpha: i == _index ? 0.9 : 0.4),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+          ],
+        ),
       ),
     );
   }

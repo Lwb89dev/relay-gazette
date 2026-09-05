@@ -1,0 +1,20 @@
+# Copy this file to android/key.properties and fill in your keystore details.
+# NEVER commit key.properties — it contains the credentials to your signing key.
+#
+# Generating a keystore (once):
+#
+#   keytool -genkeypair -v \
+#     -keystore relay-gazette-release.jks \
+#     -alias relaygazette \
+#     -keyalg RSA -keysize 4096 \
+#     -validity 10000 \
+#     -storetype PKCS12 \
+#     -dname "CN=Relay Gazette, OU=Development, O=Relay Gazette, L=Italy, C=IT"
+#
+# Keep the .jks file outside the project directory, and keep a backup: lose it
+# and no future build can ever update an installed copy of the app.
+
+storeFile=/path/to/relay-gazette-release.jks
+storePassword=YOUR_STORE_PASSWORD
+keyAlias=relaygazette
+keyPassword=YOUR_KEY_PASSWORD

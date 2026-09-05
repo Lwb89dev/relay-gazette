@@ -13,12 +13,16 @@ import 'package:relay_gazette/domain/usecases/generate_edition.dart';
 class _FakeFeedProvider implements FeedProvider {
   List<Story> personalNetworkStories = const [];
   List<Story> trendingStories = const [];
+  List<Story> webOfTrustStories = const [];
   List<Story> listStories = const [];
   ({DateTime since, DateTime until})? lastPersonalNetworkWindow;
   String? lastRequestedListId;
 
   @override
   bool get supportsTrending => true;
+
+  @override
+  bool get supportsWebOfTrust => true;
 
   @override
   bool get supportsLists => true;
@@ -43,6 +47,15 @@ class _FakeFeedProvider implements FeedProvider {
     required DateTime until,
   }) async {
     return trendingStories;
+  }
+
+  @override
+  Future<List<Story>> fetchWebOfTrustStories({
+    required NostrPublicKey pubkey,
+    required DateTime since,
+    required DateTime until,
+  }) async {
+    return webOfTrustStories;
   }
 
   @override
@@ -114,6 +127,49 @@ void main() {
     expect(edition.source, EditionSource.trending);
     expect(edition.stories.map((s) => s.id), ['t']);
   });
+
+  test('routes to the Web of Trust provider when the source is webOfTrust', () async {
+    final feed = _FakeFeedProvider()..webOfTrustStories = [_story('w', reactions: 3)];
+    final generate = GenerateEdition(feed);
+
+    final edition = await generate(
+      viewer: viewer,
+      configuration: const FilterConfiguration(
+        source: EditionSource.webOfTrust,
+        timeWindow: EditionTimeWindow.fourHours,
+      ),
+      generateId: () => 'edition-wot',
+      now: now,
+    );
+
+    expect(edition.source, EditionSource.webOfTrust);
+    expect(edition.stories.map((s) => s.id), ['w']);
+  });
+
+  test(
+    'Web of Trust gets no engagement grace period, same as trending — '
+    'a fresh low-engagement story is still dropped',
+    () async {
+      final feed = _FakeFeedProvider()
+        ..webOfTrustStories = [
+          _story('fresh-wot', reactions: 0, createdAt: now.subtract(const Duration(minutes: 5))),
+        ];
+      final generate = GenerateEdition(feed);
+
+      final edition = await generate(
+        viewer: viewer,
+        configuration: const FilterConfiguration(
+          source: EditionSource.webOfTrust,
+          timeWindow: EditionTimeWindow.fourHours,
+          thresholds: EngagementThresholds(minReactions: 10),
+        ),
+        generateId: () => 'edition-wot-grace',
+        now: now,
+      );
+
+      expect(edition.isEmpty, isTrue);
+    },
+  );
 
   test('deduplicates stories the provider returned more than once', () async {
     final duplicate = _story('dup', reactions: 5);
