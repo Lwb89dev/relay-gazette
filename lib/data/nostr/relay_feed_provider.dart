@@ -174,6 +174,11 @@ class RelayFeedProvider implements FeedProvider {
       // "root notes only" filter field) — drop them here instead of
       // showing a front page full of comment fragments.
       if (note.kind == NostrEventKinds.textNote && isReplyNote(note)) continue;
+      // Same explicit-content gate PrimalFeedProvider applies to
+      // Trending/Web of Trust — a followed account can post NIP-36/#nsfw
+      // content too, and there's no reason a personal edition should be
+      // exempt from the same filter a discovery one gets.
+      if (isExplicitContent(note)) continue;
       uniqueNotes[note.id] = note;
     }
     if (uniqueNotes.isEmpty) return const [];

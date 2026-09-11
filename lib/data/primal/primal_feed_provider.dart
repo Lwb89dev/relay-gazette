@@ -144,10 +144,15 @@ class PrimalFeedProvider implements FeedProvider {
             // against trending: the `limit: kMaxNotesPerEdition` budget
             // above stops being spent on thread replies, so it takes
             // fewer round trips through this cache query to fill an
-            // edition with real top-level stories.
+            // edition with real top-level stories. `isExplicitContent`
+            // is the other half of the same "these are unfiltered
+            // engagement scopes" problem — reported as trending/WoT being
+            // dominated by unlabeled adult content, which nothing about
+            // Primal's own scopes screens out server-side.
             if (event.createdAt >= sinceSeconds &&
                 event.createdAt <= untilSeconds &&
                 !isReplyNote(event) &&
+                !isExplicitContent(event) &&
                 await _verifier.verify(event)) {
               notes[event.id] = event;
             }
@@ -157,6 +162,7 @@ class PrimalFeedProvider implements FeedProvider {
             // kind:1 thread replies.
             if (event.createdAt >= sinceSeconds &&
                 event.createdAt <= untilSeconds &&
+                !isExplicitContent(event) &&
                 await _verifier.verify(event)) {
               notes[event.id] = event;
             }

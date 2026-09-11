@@ -127,6 +127,62 @@ void main() {
     });
   });
 
+  group('isExplicitContent', () {
+    test('false for an ordinary note', () {
+      final event = _event(id: 'note-1', content: 'just a normal update about my day');
+      expect(isExplicitContent(event), isFalse);
+    });
+
+    test('true for a NIP-36 content-warning tag, regardless of content', () {
+      final event = _event(
+        id: 'note-1',
+        tags: [
+          ['content-warning', 'graphic imagery'],
+        ],
+      );
+      expect(isExplicitContent(event), isTrue);
+    });
+
+    test('true for an #nsfw hashtag, case-insensitively', () {
+      final event = _event(
+        id: 'note-1',
+        tags: [
+          ['t', 'NSFW'],
+        ],
+      );
+      expect(isExplicitContent(event), isTrue);
+    });
+
+    test('true for an explicit keyword in the content, case-insensitively', () {
+      final event = _event(id: 'note-1', content: 'link to my ONLYFANS in bio');
+      expect(isExplicitContent(event), isTrue);
+    });
+
+    test('true for "18+" as a marker', () {
+      final event = _event(id: 'note-1', content: 'members only, 18+');
+      expect(isExplicitContent(event), isTrue);
+    });
+
+    test('false for an unrelated hashtag', () {
+      final event = _event(
+        id: 'note-1',
+        tags: [
+          ['t', 'nostr'],
+        ],
+      );
+      expect(isExplicitContent(event), isFalse);
+    });
+
+    test('does not flag ordinary words like "sex" or "adult" that also appear '
+        'in unrelated news/editorial content', () {
+      final event = _event(
+        id: 'note-1',
+        content: 'the adult education bill passed; sex education funding was cut',
+      );
+      expect(isExplicitContent(event), isFalse);
+    });
+  });
+
   group('mentionedPubkeysIn / resolveMentions', () {
     final aliceHex = 'a' * 64;
     final aliceNpub = Nip19.encodePubKey(aliceHex);

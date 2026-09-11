@@ -1069,4 +1069,48 @@ Implementation:
 `flutter test`: all 266 tests passing.
 `flutter build apk --release`: succeeds, signed with the new
 `relay-gazette-release.jks` key (confirmed via `apksigner verify`).
-`flutter test`: 263 passed, 0 failed.
+
+## Phase 22 — explicit-content filter for Trending/Web of Trust (this session)
+
+- [x] **Reported: Web of Trust is "solo gran monnezza" and Trending is
+      "solo del porno".** Looked into how nostrich.org (a closed-source,
+      undocumented client — confirmed via its own site, no algorithm or
+      moderation details published anywhere, no public repo either) does
+      its own trending/filtering: nothing usable came back, so there was
+      no algorithm to port. The real, actionable problem underneath both
+      reports is the same one: Primal's `explore`/`advanced_search`
+      scopes rank purely by engagement on the open network, with no
+      content screening at all — and unlabeled adult content reliably
+      gets disproportionate engagement on an open social network, which
+      is exactly what both "trending" and "what my wider network engaged
+      with" (Web of Trust) amplify.
+- [x] **New `isExplicitContent` predicate** (`data/nostr/nostr_mappers.dart`,
+      next to the existing `isReplyNote`): true for a NIP-36
+      `content-warning` tag, a conventional `#nsfw`/`#nsfw18` hashtag (most
+      clients don't implement `content-warning` UI, so the hashtag is in
+      practice the more common of the two real-world signals), or a small,
+      high-precision keyword match against the note's content (`porn`,
+      `xxx`, `hentai`, `onlyfans`, `fansly`, `nude(s)`, `camgirl`, `18+`,
+      `nsfw`) — deliberately narrow, word-boundary-matched, and excluding
+      ambiguous words ("sex", "adult") that also show up in ordinary
+      news/editorial content, since a false positive silently drops a
+      story with no way for the reader to notice.
+  - Applied at the same point `isReplyNote` already filters candidates —
+    `PrimalFeedProvider._parseStories` (both the kind:1 and kind:30023
+    branches, so it covers Trending and Web of Trust alike) and
+    `RelayFeedProvider`'s note-scan loop (so a followed account posting
+    unlabeled NSFW content is filtered the same way in a personal
+    edition, not just in discovery sources).
+  - New `isExplicitContent` unit tests in `test/data/nostr_mappers_test.dart`
+    (content-warning tag, #nsfw hashtag case-insensitivity, keyword match,
+    the "18+" edge case, and the false-positive guard for "sex"/"adult" in
+    ordinary text) plus an integration test in
+    `test/data/primal/primal_feed_provider_test.dart` confirming a flagged
+    note never reaches a `Story` at all.
+  - Not done: a Settings toggle to disable the filter. Nothing was asked
+    for one, and the app doesn't have a moderation-classification service
+    to fall back on if a reader wanted a less blunt policy — noted here in
+    case "let me see it anyway" comes up later.
+
+`flutter analyze`: clean (same 15 pre-existing info/warnings, nothing new).
+`flutter test`: all 274 tests passing.

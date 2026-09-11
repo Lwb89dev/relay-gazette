@@ -242,6 +242,47 @@ bool isReplyNote(Nip01Event event) {
   return event.tags.any((tag) => tag.isNotEmpty && tag[0] == 'e');
 }
 
+/// Hashtags (`t` tags) commonly used to self-label sensitive content on
+/// Nostr, alongside or instead of the formal NIP-36 `content-warning` tag —
+/// most clients don't offer a `content-warning` UI, so `#nsfw` is in
+/// practice the more common of the two signals.
+const _sensitiveHashtags = {'nsfw', 'nsfw18'};
+
+/// A small, high-precision set of explicit-content markers. Deliberately
+/// narrow — this is a blunt keyword filter, not moderation, and a false
+/// positive silently drops a story with no way for the reader to know —
+/// so it only matches terms that are essentially unambiguous in isolation,
+/// not words ("sex", "adult") that also appear throughout ordinary news
+/// content.
+final RegExp _explicitKeywordPattern = RegExp(
+  // "18+" ends in a non-word character, so it gets its own alternative
+  // without a trailing \b — a word-boundary assertion right after '+'
+  // never succeeds, since neither side of that position is a word
+  // character for \b to draw a boundary against.
+  r'\b(nsfw|porn\w*|xxx|hentai|onlyfans|fansly|nudes?|nudity|camgirl)\b|\b18\+',
+  caseSensitive: false,
+);
+
+/// True when an event self-identifies as sensitive/adult content (NIP-36
+/// `content-warning`, or a conventional `#nsfw` hashtag) or its content
+/// contains an explicit-content marker. Trending and Web of Trust both
+/// surface whatever the open network is engaging with most right now —
+/// with no curation of who's in that network, that reliably includes
+/// unlabeled adult content and spam promoting it; this is the gate that
+/// keeps it out of an edition.
+bool isExplicitContent(Nip01Event event) {
+  for (final tag in event.tags) {
+    if (tag.isEmpty) continue;
+    if (tag[0] == 'content-warning') return true;
+    if (tag[0] == 't' &&
+        tag.length >= 2 &&
+        _sensitiveHashtags.contains(tag[1].toLowerCase())) {
+      return true;
+    }
+  }
+  return _explicitKeywordPattern.hasMatch(event.content);
+}
+
 /// Best-effort sats amount for a NIP-57 zap receipt. The authoritative
 /// amount lives in the receipt's bolt11 invoice, but decoding bolt11 is
 /// substantial extra complexity for an MVP; instead this reads the amount

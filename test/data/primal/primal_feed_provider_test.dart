@@ -197,6 +197,41 @@ void main() {
     expect(stories.map((s) => s.id), ['top-level']);
   });
 
+  test('drops notes flagged as sensitive/explicit content, whether by NIP-36 '
+      'content-warning, an #nsfw hashtag, or a keyword in the content', () async {
+    final client = _FakePrimalCacheClient()
+      ..response = [
+        _note('clean', pubkey: author, createdAt: 1787400000, content: 'a normal update'),
+        _note(
+          'content-warning-tag',
+          pubkey: author,
+          createdAt: 1787400000,
+          tags: [
+            ['content-warning', 'nudity'],
+          ],
+        ),
+        _note(
+          'nsfw-hashtag',
+          pubkey: author,
+          createdAt: 1787400000,
+          tags: [
+            ['t', 'NSFW'],
+          ],
+        ),
+        _note(
+          'keyword-in-content',
+          pubkey: author,
+          createdAt: 1787400000,
+          content: 'check out my onlyfans',
+        ),
+      ];
+    final provider = PrimalFeedProvider(client, verifier: _StubVerifier(true));
+
+    final stories = await provider.fetchTrendingStories(since: since, until: until);
+
+    expect(stories.map((s) => s.id), ['clean']);
+  });
+
   test('drops notes whose signature does not verify, unlike relay-sourced stories, '
       'nothing here has been checked yet by the time it arrives', () async {
     final client = _FakePrimalCacheClient()

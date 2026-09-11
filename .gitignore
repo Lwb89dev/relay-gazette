@@ -49,3 +49,6 @@ android/key.properties
 *.jks
 *.keystore
 *.p12
+
+# Local secrets/config — never commit
+.env
