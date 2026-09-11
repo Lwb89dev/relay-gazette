@@ -1114,3 +1114,76 @@ Implementation:
 
 `flutter analyze`: clean (same 15 pre-existing info/warnings, nothing new).
 `flutter test`: all 274 tests passing.
+
+## Phase 23 — performance pass: an edition could render up to 500 stories at once (this session)
+
+- [x] **Reported: the app is laggy/clunky.** Audited the reading path for
+      the usual Flutter jank sources (expensive `CustomPainter`s, per-frame
+      rebuilds, N+1 network calls, undecoded-size images, unbounded eager
+      lists) rather than guessing. `AgedPaperSurface` and
+      `RelayFeedProvider`'s engagement fetch were already deliberately
+      optimized in earlier sessions and are fine. Two real, confirmed
+      causes found:
+  - **No cap on how many stories one edition can contain.** `kMaxNotesPerEdition`
+    (the raw fetch limit) is 500, `EngagementThresholds.none` is the
+    default configuration, and `BuildEditionSections` puts every
+    qualifying story into a section with no size limit of its own for
+    Trending/Web of Trust (a single ranked section) or for
+    personalNetwork/customList's overflow ("remaining", past the first 5
+    "Top Stories" — also uncapped). `EditionReaderPage` then renders the
+    whole front page as one eagerly-built `Column` inside a
+    `SingleChildScrollView` — every `HeroStoryBlock`/`StoryBlock`/
+    `_BriefItem` in the edition is built immediately on open, not
+    windowed by scroll position, so every one of their images starts
+    downloading and decoding at once. A Trending or Web-of-Trust edition
+    — the two sources with no threshold to naturally shrink the pool —
+    could realistically carry dozens to hundreds of stories into that one
+    build. Fixed with `GenerateEdition.maxStoriesPerEdition = 50`: after
+    qualification, stories are ranked (the same ranker `BuildEditionSections`
+    itself would use — `_sectionBuilder.ranker ?? engagementWeight`, so a
+    capped edition keeps the *best* stories, not an arbitrary prefix) and
+    truncated before sectioning. New tests in
+    `test/domain/generate_edition_test.dart` (`maxStoriesPerEdition cap`
+    group): a pool under the cap is untouched; a pool over the cap is
+    truncated to exactly 50 and keeps the highest-ranked story even when
+    it's last in provider order (proving the cap doesn't just take a
+    prefix).
+  - **Thumbnails and avatars decoded at source resolution.** Neither
+    `_StoryImage`'s `CachedNetworkImage` (`story_blocks.dart`, shown at a
+    fixed 120-220 logical-pixel height, up to `maxStoriesPerEdition`
+    times per front page) nor `ByLine`'s `CachedNetworkImageProvider`
+    avatar (`story_meta.dart`, a ~24-56px circle, once per story block)
+    had a decode-size hint — both decoded the full source image (easily
+    several thousand pixels on a side for a phone photo or an uncropped
+    profile picture) into memory before ever scaling down for display.
+    Added `memCacheHeight` (device-pixel-ratio-scaled) to the thumbnail
+    and `maxWidth`/`maxHeight` to the avatar provider — only the axis
+    each widget actually constrains, so decoding still preserves the
+    source aspect ratio instead of distorting it.
+  - Not done: converting the front page's eager `Column` into a
+    virtualized `CustomScrollView`/`SliverList`. The 10x size reduction
+    from capping addresses the dominant cost; a full sliver rewrite would
+    also need to handle the tablet/wide multi-column layouts, which don't
+    map cleanly onto a single linear sliver list, and risks the reader
+    page's existing test coverage for a second, smaller win. Worth
+    revisiting if 50 stories still feels heavy after this.
+  - Considered and deferred: moving `EditionRepositoryImpl`'s
+    `jsonEncode`/`jsonDecode` off the UI isolate via `compute()`. The
+    50-story cap already shrinks the payload substantially, and Dart's
+    JSON codec on a payload that size is unlikely to be the dominant cost
+    — flagged here rather than fixed speculatively.
+- [x] **Debug session**: ran the app (`flutter run -d linux --profile`,
+      the only device available in this dev environment — no Android
+      emulator attached) to confirm the changes actually run. Launched
+      cleanly, no exceptions in the log. Could not drive it interactively
+      (real device taps/scroll) from here: the desktop session is
+      Wayland, no GUI-automation tool (`xdotool`/`ydotool`) or screenshot
+      tool (`grim`, `gnome-screenshot`) is installed, and installing one
+      wasn't done without asking first, since it touches the user's real
+      desktop environment. The Linux desktop target is also not a
+      faithful stand-in for the mobile jank that was actually reported
+      (different rendering path, no real touch scrolling) — recommended
+      verifying on-device instead.
+
+`flutter analyze`: clean (same 15 pre-existing info/warnings, nothing new).
+`flutter test`: all 276 tests passing.

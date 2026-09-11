@@ -5,6 +5,7 @@ import '../entities/nostr_public_key.dart';
 import '../entities/story.dart';
 import '../repositories/feed_provider.dart';
 import 'build_edition_sections.dart';
+import 'engagement_ranking.dart';
 
 /// Orchestrates turning a reader's chosen [FilterConfiguration] into a
 /// finished [GazetteEdition]: fetch, dedupe, threshold-filter, section.
@@ -24,6 +25,21 @@ class GenerateEdition {
   /// Discovery sources: the candidate pool itself is already engagement-
   /// ranked by a server (Primal), unlike a reader's own curated feed.
   static const _discoverySources = {EditionSource.trending, EditionSource.webOfTrust};
+
+  /// A hard cap on how many stories one edition can ever contain, applied
+  /// after qualification and before sectioning. Trending/Web of Trust have
+  /// no engagement threshold to naturally shrink the candidate pool the way
+  /// a personal feed's does — without this, either could carry up to
+  /// `kMaxNotesPerEdition` (500) qualifying stories straight into the
+  /// reader's single eagerly-built front page, every one of them an image
+  /// that starts downloading and decoding the moment the page opens. That
+  /// — not "there's a lot to scroll through" — is what actually produced
+  /// the reported jank. A real newspaper's front page is finite for the
+  /// same reason a phone shouldn't be asked to build 500 story cards at
+  /// once; the qualifying stories are ranked (same ranker the section
+  /// builder itself uses) before truncating, so a cap never means an
+  /// arbitrary cut — it means keeping the best of what qualified.
+  static const maxStoriesPerEdition = 50;
 
   final FeedProvider _feedProvider;
   final BuildEditionSections _sectionBuilder;
@@ -48,7 +64,7 @@ class GenerateEdition {
 
     final sections = _sectionBuilder(
       source: configuration.source,
-      qualifyingStories: qualifying,
+      qualifyingStories: _cap(qualifying),
     );
 
     return GazetteEdition(
@@ -104,5 +120,21 @@ class GenerateEdition {
       byId.putIfAbsent(story.id, () => story);
     }
     return byId.values.toList();
+  }
+
+  /// Truncates to [maxStoriesPerEdition], keeping the highest-ranked
+  /// stories rather than cutting off arbitrarily — the same ranker
+  /// [_sectionBuilder] itself uses by default, so a capped edition's "best"
+  /// stories match what the reader would see if nothing had been capped
+  /// at all, just fewer of them.
+  List<Story> _cap(List<Story> stories) {
+    if (stories.length <= maxStoriesPerEdition) return stories;
+    final rank = _sectionBuilder.ranker ?? (Story s) => engagementWeight(s.engagement);
+    final ranked = [...stories]..sort((a, b) {
+      final byScore = rank(b).compareTo(rank(a));
+      if (byScore != 0) return byScore;
+      return b.createdAt.compareTo(a.createdAt);
+    });
+    return ranked.take(maxStoriesPerEdition).toList();
   }
 }

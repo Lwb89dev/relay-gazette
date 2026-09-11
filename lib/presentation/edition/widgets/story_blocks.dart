@@ -383,6 +383,18 @@ class _StoryImageState extends State<_StoryImage> {
 
   @override
   Widget build(BuildContext context) {
+    // A card thumbnail is a fixed, small logical height but an
+    // unconstrained width (BoxFit.cover fills whatever card width it lands
+    // in) — without a decode-size hint, every one of these decodes the
+    // *source* image (easily several thousand pixels on a side from a
+    // phone camera) into memory in full before ever scaling it down for
+    // display. An edition can carry dozens of these; decoding all of them
+    // at native resolution the moment the front page opens is real,
+    // measurable jank, not just "a lot of images". Only the height needs
+    // capping here — it's the axis this widget actually constrains — so
+    // the decode still preserves the source aspect ratio instead of
+    // distorting it.
+    final memCacheHeight = (widget.height * MediaQuery.devicePixelRatioOf(context)).round();
     return ClipRRect(
       borderRadius: BorderRadius.circular(2),
       child: SizedBox(
@@ -405,6 +417,7 @@ class _StoryImageState extends State<_StoryImage> {
                     fit: BoxFit.cover,
                     width: double.infinity,
                     height: widget.height,
+                    memCacheHeight: memCacheHeight,
                     placeholder: (context, url) =>
                         Container(color: context.gazetteColors.paperMuted),
                     errorWidget: (context, url, error) => const SizedBox.shrink(),

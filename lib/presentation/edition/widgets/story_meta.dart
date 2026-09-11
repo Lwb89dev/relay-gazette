@@ -17,13 +17,23 @@ class ByLine extends StatelessWidget {
     final theme = Theme.of(context);
     final colors = context.gazetteColors;
     final picture = story.author.pictureUrl;
+    // A profile picture is very commonly a large, uncropped upload
+    // (500px+) shown here at a ~24-56 logical-pixel circle. This appears
+    // once per story block — up to `GenerateEdition.maxStoriesPerEdition`
+    // times on one front page — so decoding each at native resolution adds
+    // up to real memory/CPU pressure for no visible benefit at this size.
+    final avatarDiameterPx = (avatarRadius * 2 * MediaQuery.devicePixelRatioOf(context)).round();
     return Row(
       children: [
         CircleAvatar(
           radius: avatarRadius,
           backgroundColor: colors.paperMuted,
           foregroundImage: picture != null
-              ? CachedNetworkImageProvider(picture)
+              ? CachedNetworkImageProvider(
+                  picture,
+                  maxWidth: avatarDiameterPx,
+                  maxHeight: avatarDiameterPx,
+                )
               : null,
           child: picture == null
               ? Text(

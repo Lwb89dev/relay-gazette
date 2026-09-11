@@ -314,6 +314,56 @@ void main() {
     );
   });
 
+  group('maxStoriesPerEdition cap', () {
+    test('a candidate pool under the cap is left untouched', () async {
+      final stories = [for (var i = 0; i < 10; i++) _story('s$i', reactions: i)];
+      final feed = _FakeFeedProvider()..trendingStories = stories;
+      final generate = GenerateEdition(feed);
+
+      final edition = await generate(
+        viewer: viewer,
+        configuration: const FilterConfiguration(
+          source: EditionSource.trending,
+          timeWindow: EditionTimeWindow.fourHours,
+        ),
+        generateId: () => 'edition-cap-1',
+        now: now,
+      );
+
+      expect(edition.storyCount, 10);
+    });
+
+    test(
+      'a candidate pool over the cap is truncated to maxStoriesPerEdition, '
+      'keeping the highest-ranked stories rather than an arbitrary prefix',
+      () async {
+        // One low-reaction story for every slot the cap allows, plus one
+        // extra with more reactions than all of them — if capping just
+        // took the first N in provider order, this highest-ranked story
+        // (last in the list) would be the one dropped instead.
+        final stories = [
+          for (var i = 0; i < GenerateEdition.maxStoriesPerEdition; i++) _story('low-$i', reactions: 1),
+          _story('highest', reactions: 999),
+        ];
+        final feed = _FakeFeedProvider()..trendingStories = stories;
+        final generate = GenerateEdition(feed);
+
+        final edition = await generate(
+          viewer: viewer,
+          configuration: const FilterConfiguration(
+            source: EditionSource.trending,
+            timeWindow: EditionTimeWindow.fourHours,
+          ),
+          generateId: () => 'edition-cap-2',
+          now: now,
+        );
+
+        expect(edition.storyCount, GenerateEdition.maxStoriesPerEdition);
+        expect(edition.stories.map((s) => s.id), contains('highest'));
+      },
+    );
+  });
+
   test('an edition with no qualifying stories has no sections', () async {
     final feed = _FakeFeedProvider();
     final generate = GenerateEdition(feed);
