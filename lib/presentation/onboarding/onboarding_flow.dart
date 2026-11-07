@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../theme/aged_paper_surface.dart';
 import '../theme/gazette_colors.dart';
 import 'edition_sources_page.dart';
 import 'interactions_page.dart';
@@ -30,50 +31,55 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
   }
 
   void _next() {
-    _controller.nextPage(duration: const Duration(milliseconds: 300), curve: Curves.easeOut);
+    _controller.nextPage(
+      duration: const Duration(milliseconds: 300),
+      curve: Curves.easeOut,
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     final colors = context.gazetteColors;
     return Scaffold(
-      body: Column(
-        children: [
-          Expanded(
-            child: PageView(
-              controller: _controller,
-              onPageChanged: (page) => setState(() => _page = page),
-              children: const [
-                EditionSourcesPage(),
-                InteractionsPage(),
-                SignInStep(),
-              ],
+      body: AgedPaperSurface(
+        child: Column(
+          children: [
+            Expanded(
+              child: PageView(
+                controller: _controller,
+                onPageChanged: (page) => setState(() => _page = page),
+                children: const [
+                  EditionSourcesPage(),
+                  InteractionsPage(),
+                  SignInStep(),
+                ],
+              ),
             ),
-          ),
-          Padding(
-            padding: const EdgeInsets.symmetric(vertical: 16),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                for (var i = 0; i < _pageCount; i++)
-                  Container(
-                    margin: const EdgeInsets.symmetric(horizontal: 4),
-                    width: 8,
-                    height: 8,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: i == _page ? colors.accent : colors.rule,
-                    ),
-                  ),
-              ],
-            ),
-          ),
-          if (_page < _pageCount - 1)
             Padding(
-              padding: const EdgeInsets.only(bottom: 20),
-              child: TextButton(onPressed: _next, child: const Text('Next')),
+              padding: const EdgeInsets.symmetric(vertical: 16),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  for (var i = 0; i < _pageCount; i++)
+                    AnimatedContainer(
+                      duration: const Duration(milliseconds: 220),
+                      margin: const EdgeInsets.symmetric(horizontal: 4),
+                      width: i == _page ? 22 : 8,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: i == _page ? colors.accent : colors.rule,
+                      ),
+                    ),
+                ],
+              ),
             ),
-        ],
+            if (_page < _pageCount - 1)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 20),
+                child: TextButton(onPressed: _next, child: const Text('Next')),
+              ),
+          ],
+        ),
       ),
     );
   }

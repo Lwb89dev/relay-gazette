@@ -263,7 +263,9 @@ _FrontPageLayout _frontPage(GazetteEdition edition) {
       .toList();
   final hero = articles.isNotEmpty ? articles.first : null;
   final secondary = articles.skip(1).toList();
-  final brief = allStories.where((s) => !s.isLinkOnlyPost && wireOnly(s)).toList();
+  final brief = allStories
+      .where((s) => !s.isLinkOnlyPost && wireOnly(s))
+      .toList();
 
   var heroKicker = sections.first.title;
   if (hero != null) {
@@ -454,17 +456,26 @@ class _RailPanel extends StatelessWidget {
     final colors = context.gazetteColors;
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 20),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(border: Border.all(color: colors.rule)),
+      padding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
+      decoration: BoxDecoration(
+        color: colors.paperMuted.withValues(alpha: 0.3),
+        border: Border.all(color: colors.ink, width: 1.25),
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            title,
-            style: theme.textTheme.labelLarge?.copyWith(letterSpacing: 1.3),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 7),
+            color: colors.ink,
+            child: Text(
+              title,
+              style: theme.textTheme.labelLarge?.copyWith(
+                color: colors.paper,
+                letterSpacing: 1.3,
+              ),
+            ),
           ),
-          const SizedBox(height: 8),
-          Container(height: 1, color: colors.rule),
           const SizedBox(height: 12),
           child,
         ],

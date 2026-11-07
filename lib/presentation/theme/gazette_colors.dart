@@ -1,9 +1,14 @@
 import 'package:flutter/material.dart';
 
+/// The three editorial art directions share the same component system but
+/// deliberately do not look like simple recolours of one another.
+enum GazetteVisualStyle { antique, nocturne, sport }
+
 /// Semantic colors for the editorial UI, resolved per-theme (light/dark)
 /// via [ThemeExtension] so widgets never hardcode a color that only makes
 /// sense on paper-colored backgrounds. Access via `context.gazetteColors`.
 class GazetteColors extends ThemeExtension<GazetteColors> {
+  final GazetteVisualStyle style;
   final Color paper;
   final Color paperMuted;
   final Color ink;
@@ -11,16 +16,14 @@ class GazetteColors extends ThemeExtension<GazetteColors> {
   final Color rule;
   final Color accent;
 
-  /// The two extra, darker stops in the newspaper page's aged-paper
-  /// gradient — [paper]/[paperMuted] are the center/mid tones, these are
-  /// the edge and corner tones. For [dark]/[sport], both equal [paper]:
-  /// the gradient this feeds (`AgedPaperSurface`) then paints as a flat,
-  /// uniform fill — i.e. a no-op — since the aging treatment is specific
-  /// to the light theme's reading surface, not every theme.
+  /// The two outer stops in the newspaper page's printed-stock gradient.
+  /// Every art direction has its own treatment: aged edges for antique,
+  /// a restrained vignette for nocturne, and subtle pink variation for sport.
   final Color paperEdge;
   final Color paperCorner;
 
   const GazetteColors({
+    required this.style,
     required this.paper,
     required this.paperMuted,
     required this.ink,
@@ -31,47 +34,49 @@ class GazetteColors extends ThemeExtension<GazetteColors> {
     required this.paperCorner,
   });
 
-  /// A cool, lightly aged newsprint — the center is a restrained ivory and
-  /// the edges only gently deepen to warm grey, avoiding a yellow parchment
-  /// cast while preserving the physical-paper character.
+  /// Warm, lightly aged newsprint with oxblood editorial details.
   static const light = GazetteColors(
-    paper: Color(0xFFF7F3E7),
-    paperMuted: Color(0xFFEEE7D7),
-    ink: Color(0xFF1D1A17),
-    inkFaded: Color(0xFF655E55),
-    rule: Color(0xFFB9AE9F),
-    accent: Color(0xFF7B372F),
-    paperEdge: Color(0xFFE3D7C1),
-    paperCorner: Color(0xFFD6C6AC),
+    style: GazetteVisualStyle.antique,
+    paper: Color(0xFFF3E9D2),
+    paperMuted: Color(0xFFE6D7B9),
+    ink: Color(0xFF251D16),
+    inkFaded: Color(0xFF67594B),
+    rule: Color(0xFFA88E6D),
+    accent: Color(0xFF842E25),
+    paperEdge: Color(0xFFDDC9A5),
+    paperCorner: Color(0xFFCDB38A),
   );
 
   static const dark = GazetteColors(
-    paper: Color(0xFF100E14),
-    paperMuted: Color(0xFF17131D),
-    ink: Color(0xFFF1ECE7),
-    inkFaded: Color(0xFFAAA1AF),
-    rule: Color(0xFF38313F),
-    accent: Color(0xFFC6A7E8),
-    paperEdge: Color(0xFF100E14),
-    paperCorner: Color(0xFF100E14),
+    style: GazetteVisualStyle.nocturne,
+    paper: Color(0xFF151513),
+    paperMuted: Color(0xFF20201D),
+    ink: Color(0xFFF0E9DB),
+    inkFaded: Color(0xFFAAA293),
+    rule: Color(0xFF4A463E),
+    accent: Color(0xFFD1A85C),
+    paperEdge: Color(0xFF10100F),
+    paperCorner: Color(0xFF0B0B0A),
   );
 
   /// The salmon-pink "sports pages" look (La Gazzetta dello Sport is the
   /// namesake) — a deliberately different mood from the two paper/ink
   /// options, still with dark-on-light contrast for reading.
   static const sport = GazetteColors(
-    paper: Color(0xFFF7CFC1),
-    paperMuted: Color(0xFFF0BEAC),
-    ink: Color(0xFF241210),
-    inkFaded: Color(0xFF6B4A42),
-    rule: Color(0xFFD99C87),
-    accent: Color(0xFFB5121B),
-    paperEdge: Color(0xFFF7CFC1),
-    paperCorner: Color(0xFFF7CFC1),
+    style: GazetteVisualStyle.sport,
+    paper: Color(0xFFF3BBC5),
+    paperMuted: Color(0xFFECA9B5),
+    ink: Color(0xFF171315),
+    inkFaded: Color(0xFF65484E),
+    rule: Color(0xFFBB7180),
+    accent: Color(0xFF8C1833),
+    paperEdge: Color(0xFFECAAB6),
+    paperCorner: Color(0xFFE49AA8),
   );
 
   @override
   GazetteColors copyWith({
+    GazetteVisualStyle? style,
     Color? paper,
     Color? paperMuted,
     Color? ink,
@@ -82,6 +87,7 @@ class GazetteColors extends ThemeExtension<GazetteColors> {
     Color? paperCorner,
   }) {
     return GazetteColors(
+      style: style ?? this.style,
       paper: paper ?? this.paper,
       paperMuted: paperMuted ?? this.paperMuted,
       ink: ink ?? this.ink,
@@ -97,6 +103,7 @@ class GazetteColors extends ThemeExtension<GazetteColors> {
   GazetteColors lerp(ThemeExtension<GazetteColors>? other, double t) {
     if (other is! GazetteColors) return this;
     return GazetteColors(
+      style: t < 0.5 ? style : other.style,
       paper: Color.lerp(paper, other.paper, t)!,
       paperMuted: Color.lerp(paperMuted, other.paperMuted, t)!,
       ink: Color.lerp(ink, other.ink, t)!,

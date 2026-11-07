@@ -28,16 +28,20 @@ class Masthead extends StatelessWidget {
       'EEEE, MMMM d, y',
     ).format(edition.generatedAt.toLocal());
     final sourceLabel = edition.source.label;
+    final isSport = colors.style == GazetteVisualStyle.sport;
+    final isDark = colors.style == GazetteVisualStyle.nocturne;
+    final nameplateColor = isSport || isDark ? colors.accent : colors.ink;
+    final nameplateFamily = isSport ? 'PlayfairDisplay' : 'UnifrakturCook';
 
     return LayoutBuilder(
       builder: (context, constraints) {
         final compact = constraints.maxWidth < 600;
         return Padding(
-          padding: EdgeInsets.fromLTRB(20, compact ? 16 : 22, 20, 16),
+          padding: EdgeInsets.fromLTRB(20, compact ? 14 : 22, 20, 18),
           child: Column(
             children: [
-              _Rule(color: colors.ink),
-              const SizedBox(height: 6),
+              _Rule(color: nameplateColor, thickness: isSport ? 4 : 3),
+              const SizedBox(height: 7),
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
@@ -56,68 +60,82 @@ class Masthead extends StatelessWidget {
                   ),
                 ],
               ),
-              const SizedBox(height: 6),
-              _Rule(color: colors.ink),
-              SizedBox(height: compact ? 14 : 20),
+              const SizedBox(height: 7),
+              _Rule(color: colors.rule),
+              SizedBox(height: compact ? 12 : 18),
               Text(
                 'The',
                 textAlign: TextAlign.center,
                 style: theme.textTheme.displayLarge?.copyWith(
-                  fontFamily: 'UnifrakturCook',
-                  fontWeight: FontWeight.normal,
-                  fontSize: compact ? 24 : 30,
+                  fontFamily: nameplateFamily,
+                  fontWeight: isSport ? FontWeight.w800 : FontWeight.normal,
+                  fontStyle: isSport ? FontStyle.italic : FontStyle.normal,
+                  fontSize: isSport ? (compact ? 13 : 15) : (compact ? 22 : 28),
                   height: 0.9,
-                  letterSpacing: 1,
+                  letterSpacing: isSport ? 3.2 : 1,
+                  color: nameplateColor,
                 ),
               ),
-              const SizedBox(height: 4),
+              SizedBox(height: isSport ? 8 : 4),
               Text(
                 'Relay Gazette',
                 textAlign: TextAlign.center,
                 style: theme.textTheme.displayLarge?.copyWith(
-                  fontFamily: 'UnifrakturCook',
-                  fontWeight: FontWeight.normal,
-                  fontSize: compact ? 40 : 54,
-                  height: 0.92,
-                  letterSpacing: 1,
+                  fontFamily: nameplateFamily,
+                  fontWeight: isSport ? FontWeight.w900 : FontWeight.normal,
+                  fontStyle: isSport ? FontStyle.italic : FontStyle.normal,
+                  fontSize: isSport ? (compact ? 39 : 56) : (compact ? 42 : 57),
+                  height: 0.9,
+                  letterSpacing: isSport ? -1.4 : 0.7,
+                  color: nameplateColor,
                 ),
               ),
-              const SizedBox(height: 6),
+              const SizedBox(height: 9),
               Text(
                 'ALL THE NOTES FIT TO RANK',
                 textAlign: TextAlign.center,
-                style: theme.textTheme.labelMedium?.copyWith(letterSpacing: 2),
+                style: theme.textTheme.labelMedium?.copyWith(
+                  color: isSport ? colors.ink : colors.accent,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 2.2,
+                ),
               ),
-              const SizedBox(height: 12),
-              _Rule(color: colors.rule, thickness: 1),
-              const SizedBox(height: 8),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Expanded(
-                    child: Text(
-                      sourceLabel.toUpperCase(),
-                      style: theme.textTheme.labelSmall,
-                    ),
+              const SizedBox(height: 14),
+              Container(
+                padding: const EdgeInsets.symmetric(vertical: 9),
+                decoration: BoxDecoration(
+                  color: colors.paperMuted.withValues(alpha: 0.45),
+                  border: Border(
+                    top: BorderSide(color: colors.ink, width: 1.5),
+                    bottom: BorderSide(color: colors.ink, width: 1.5),
                   ),
-                  Expanded(
-                    child: Text(
-                      'PAST ${edition.filterConfiguration.timeWindow.label.toUpperCase()}',
-                      textAlign: TextAlign.center,
-                      style: theme.textTheme.labelSmall,
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Expanded(
+                      child: Text(
+                        sourceLabel.toUpperCase(),
+                        style: theme.textTheme.labelSmall,
+                      ),
                     ),
-                  ),
-                  Expanded(
-                    child: Text(
-                      '${edition.storyCount} STORIES · $authorCount AUTHORS',
-                      textAlign: TextAlign.right,
-                      style: theme.textTheme.labelSmall,
+                    Expanded(
+                      child: Text(
+                        'PAST ${edition.filterConfiguration.timeWindow.label.toUpperCase()}',
+                        textAlign: TextAlign.center,
+                        style: theme.textTheme.labelSmall,
+                      ),
                     ),
-                  ),
-                ],
+                    Expanded(
+                      child: Text(
+                        '${edition.storyCount} STORIES · $authorCount AUTHORS',
+                        textAlign: TextAlign.right,
+                        style: theme.textTheme.labelSmall,
+                      ),
+                    ),
+                  ],
+                ),
               ),
-              const SizedBox(height: 8),
-              _Rule(color: colors.rule, thickness: 1),
             ],
           ),
         );

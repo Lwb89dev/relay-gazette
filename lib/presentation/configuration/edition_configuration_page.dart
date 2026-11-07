@@ -9,6 +9,7 @@ import '../../domain/entities/time_window.dart';
 import '../common/state_views.dart';
 import '../edition/edition_providers.dart';
 import '../edition/edition_reader_page.dart';
+import '../theme/aged_paper_surface.dart';
 import '../theme/gazette_colors.dart';
 
 class EditionConfigurationPage extends ConsumerStatefulWidget {
@@ -48,7 +49,9 @@ class _EditionConfigurationPageState
       configuration: FilterConfiguration(
         source: _source,
         timeWindow: _window,
-        customListId: _source == EditionSource.customList ? _selectedListId : null,
+        customListId: _source == EditionSource.customList
+            ? _selectedListId
+            : null,
         thresholds: EngagementThresholds(
           minReactions: _parse(_minReactions),
           minReplies: _parse(_minReplies),
@@ -75,95 +78,104 @@ class _EditionConfigurationPageState
   Widget build(BuildContext context) {
     final generation = ref.watch(editionGenerationControllerProvider);
     final isGenerating = generation.isLoading;
-    final missingListSelection = _source == EditionSource.customList && _selectedListId == null;
+    final missingListSelection =
+        _source == EditionSource.customList && _selectedListId == null;
 
     final colors = context.gazetteColors;
 
     return Scaffold(
       appBar: AppBar(title: const Text('New Edition')),
-      body: SafeArea(
-        child: Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 640),
-            child: ListView(
-              padding: const EdgeInsets.all(20),
-              children: [
-                Text('Source', style: Theme.of(context).textTheme.labelLarge),
-                const SizedBox(height: 8),
-                _SourceSelector(
-                  selected: _source,
-                  onChanged: (source) => setState(() => _source = source),
-                ),
-                if (_source == EditionSource.customList) ...[
-                  const SizedBox(height: 12),
-                  _ListSelector(
-                    viewer: widget.viewer,
-                    selectedListId: _selectedListId,
-                    onChanged: (listId) => setState(() => _selectedListId = listId),
+      body: AgedPaperSurface(
+        child: SafeArea(
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 640),
+              child: ListView(
+                padding: const EdgeInsets.all(20),
+                children: [
+                  Text('Source', style: Theme.of(context).textTheme.labelLarge),
+                  const SizedBox(height: 8),
+                  _SourceSelector(
+                    selected: _source,
+                    onChanged: (source) => setState(() => _source = source),
                   ),
-                ],
-                const SizedBox(height: 28),
-                Text(
-                  'Time window',
-                  style: Theme.of(context).textTheme.labelLarge,
-                ),
-                const SizedBox(height: 8),
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: [
-                    for (final preset in EditionTimeWindow.presets)
-                      ChoiceChip(
-                        label: Text(preset.label),
-                        selected: _window == preset,
-                        onSelected: (_) => setState(() => _window = preset),
-                      ),
+                  if (_source == EditionSource.customList) ...[
+                    const SizedBox(height: 12),
+                    _ListSelector(
+                      viewer: widget.viewer,
+                      selectedListId: _selectedListId,
+                      onChanged: (listId) =>
+                          setState(() => _selectedListId = listId),
+                    ),
                   ],
-                ),
-                const SizedBox(height: 28),
-                Text(
-                  'Minimum engagement (optional)',
-                  style: Theme.of(context).textTheme.labelLarge,
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  'Leave blank for no minimum.',
-                  style: Theme.of(
-                    context,
-                  ).textTheme.bodyMedium?.copyWith(color: colors.inkFaded),
-                ),
-                const SizedBox(height: 12),
-                _ThresholdField(label: 'Reactions', controller: _minReactions),
-                const SizedBox(height: 12),
-                _ThresholdField(label: 'Replies', controller: _minReplies),
-                const SizedBox(height: 12),
-                _ThresholdField(label: 'Reposts', controller: _minReposts),
-                const SizedBox(height: 36),
-                if (generation.hasError)
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 16),
-                    child: Text(
-                      describeGazetteError(generation.error!),
-                      style: TextStyle(color: colors.accent),
+                  const SizedBox(height: 28),
+                  Text(
+                    'Time window',
+                    style: Theme.of(context).textTheme.labelLarge,
+                  ),
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      for (final preset in EditionTimeWindow.presets)
+                        ChoiceChip(
+                          label: Text(preset.label),
+                          selected: _window == preset,
+                          onSelected: (_) => setState(() => _window = preset),
+                        ),
+                    ],
+                  ),
+                  const SizedBox(height: 28),
+                  Text(
+                    'Minimum engagement (optional)',
+                    style: Theme.of(context).textTheme.labelLarge,
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Leave blank for no minimum.',
+                    style: Theme.of(
+                      context,
+                    ).textTheme.bodyMedium?.copyWith(color: colors.inkFaded),
+                  ),
+                  const SizedBox(height: 12),
+                  _ThresholdField(
+                    label: 'Reactions',
+                    controller: _minReactions,
+                  ),
+                  const SizedBox(height: 12),
+                  _ThresholdField(label: 'Replies', controller: _minReplies),
+                  const SizedBox(height: 12),
+                  _ThresholdField(label: 'Reposts', controller: _minReposts),
+                  const SizedBox(height: 36),
+                  if (generation.hasError)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 16),
+                      child: Text(
+                        describeGazetteError(generation.error!),
+                        style: TextStyle(color: colors.accent),
+                      ),
+                    ),
+                  SizedBox(
+                    width: double.infinity,
+                    child: FilledButton(
+                      onPressed: (isGenerating || missingListSelection)
+                          ? null
+                          : _generate,
+                      child: isGenerating
+                          ? SizedBox(
+                              height: 18,
+                              width: 18,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: colors.paper,
+                              ),
+                            )
+                          : const Text('Generate Edition'),
                     ),
                   ),
-                SizedBox(
-                  width: double.infinity,
-                  child: FilledButton(
-                    onPressed: (isGenerating || missingListSelection) ? null : _generate,
-                    child: isGenerating
-                        ? SizedBox(
-                            height: 18,
-                            width: 18,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              color: colors.paper,
-                            ),
-                          )
-                        : const Text('Generate Edition'),
-                  ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ),
@@ -214,7 +226,11 @@ class _ListSelector extends ConsumerWidget {
   final String? selectedListId;
   final ValueChanged<String?> onChanged;
 
-  const _ListSelector({required this.viewer, required this.selectedListId, required this.onChanged});
+  const _ListSelector({
+    required this.viewer,
+    required this.selectedListId,
+    required this.onChanged,
+  });
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -228,14 +244,18 @@ class _ListSelector extends ConsumerWidget {
       ),
       error: (error, _) => Text(
         'Couldn\'t load your lists.',
-        style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: colors.accent),
+        style: Theme.of(
+          context,
+        ).textTheme.bodyMedium?.copyWith(color: colors.accent),
       ),
       data: (userLists) {
         if (userLists.isEmpty) {
           return Text(
             'You don\'t have any NIP-51 lists yet — create one in another '
             'Nostr client, then come back here.',
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: colors.inkFaded),
+            style: Theme.of(
+              context,
+            ).textTheme.bodyMedium?.copyWith(color: colors.inkFaded),
           );
         }
         return DropdownButtonFormField<String>(
@@ -243,7 +263,10 @@ class _ListSelector extends ConsumerWidget {
           decoration: const InputDecoration(labelText: 'Which list?'),
           items: [
             for (final list in userLists)
-              DropdownMenuItem(value: list.id, child: Text('${list.title} (${list.members.length})')),
+              DropdownMenuItem(
+                value: list.id,
+                child: Text('${list.title} (${list.members.length})'),
+              ),
           ],
           onChanged: onChanged,
         );

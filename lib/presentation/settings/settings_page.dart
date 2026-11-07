@@ -7,6 +7,7 @@ import '../../data/nostr/relay_defaults.dart';
 import '../../domain/entities/reading_preferences.dart';
 import '../relays/relay_providers.dart';
 import '../signing/signing_providers.dart';
+import '../theme/aged_paper_surface.dart';
 import '../theme/gazette_colors.dart';
 import '../theme/theme_providers.dart';
 import '../wallet/wallet_providers.dart';
@@ -18,35 +19,37 @@ class SettingsPage extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     return Scaffold(
       appBar: AppBar(title: const Text('Settings')),
-      body: SafeArea(
-        child: Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 640),
-            child: ListView(
-              padding: const EdgeInsets.all(20),
-              children: const [
-                _SectionLabel('Appearance'),
-                SizedBox(height: 8),
-                _ThemeSelector(),
-                SizedBox(height: 20),
-                _FontSelector(),
-                SizedBox(height: 32),
-                _SectionLabel('Signer'),
-                SizedBox(height: 8),
-                _SignerSection(),
-                SizedBox(height: 32),
-                _SectionLabel('Wallet'),
-                SizedBox(height: 8),
-                _WalletSection(),
-                SizedBox(height: 32),
-                _SectionLabel('Relays'),
-                SizedBox(height: 8),
-                _RelaysSection(),
-                SizedBox(height: 32),
-                _SectionLabel('Support'),
-                SizedBox(height: 8),
-                _DonationTile(),
-              ],
+      body: AgedPaperSurface(
+        child: SafeArea(
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 640),
+              child: ListView(
+                padding: const EdgeInsets.all(20),
+                children: const [
+                  _SectionLabel('Appearance'),
+                  SizedBox(height: 12),
+                  _ThemeSelector(),
+                  SizedBox(height: 24),
+                  _FontSelector(),
+                  SizedBox(height: 36),
+                  _SectionLabel('Signer'),
+                  SizedBox(height: 12),
+                  _SignerSection(),
+                  SizedBox(height: 36),
+                  _SectionLabel('Wallet'),
+                  SizedBox(height: 12),
+                  _WalletSection(),
+                  SizedBox(height: 36),
+                  _SectionLabel('Relays'),
+                  SizedBox(height: 12),
+                  _RelaysSection(),
+                  SizedBox(height: 36),
+                  _SectionLabel('Support'),
+                  SizedBox(height: 12),
+                  _DonationTile(),
+                ],
+              ),
             ),
           ),
         ),
@@ -61,7 +64,20 @@ class _SectionLabel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Text(text, style: Theme.of(context).textTheme.labelLarge);
+    final colors = context.gazetteColors;
+    return Row(
+      children: [
+        Text(
+          text,
+          style: Theme.of(context).textTheme.labelLarge?.copyWith(
+            color: colors.accent,
+            letterSpacing: 1.4,
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(child: Container(height: 1, color: colors.rule)),
+      ],
+    );
   }
 }
 
@@ -69,10 +85,14 @@ class _ThemeSelector extends ConsumerWidget {
   const _ThemeSelector();
 
   static const _options = [
-    (ThemePreference.system, 'Follow system'),
-    (ThemePreference.light, 'Light — warm paper'),
-    (ThemePreference.dark, 'Dark'),
-    (ThemePreference.sport, 'Sport — pink pages'),
+    (
+      ThemePreference.system,
+      'Follow system',
+      'Paper by day, ink-black by night',
+    ),
+    (ThemePreference.light, 'Antique edition', 'Sepia stock, oxblood details'),
+    (ThemePreference.dark, 'Night edition', 'Charcoal paper, warm brass ink'),
+    (ThemePreference.sport, 'Sport edition', 'Bold headlines on iconic pink'),
   ];
 
   @override
@@ -82,17 +102,103 @@ class _ThemeSelector extends ConsumerWidget {
     return RadioGroup<ThemePreference>(
       groupValue: current,
       onChanged: (choice) {
-        if (choice != null)
+        if (choice != null) {
           ref.read(themePreferenceProvider.notifier).setPreference(choice);
+        }
       },
       child: Column(
         children: [
-          for (final (value, label) in _options)
-            RadioListTile<ThemePreference>(
-              contentPadding: EdgeInsets.zero,
-              title: Text(label),
-              value: value,
+          for (final (value, label, description) in _options)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: _ThemeOptionTile(
+                value: value,
+                label: label,
+                description: description,
+                selected: current == value,
+              ),
             ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ThemeOptionTile extends StatelessWidget {
+  final ThemePreference value;
+  final String label;
+  final String description;
+  final bool selected;
+
+  const _ThemeOptionTile({
+    required this.value,
+    required this.label,
+    required this.description,
+    required this.selected,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final currentColors = context.gazetteColors;
+    final preview = switch (value) {
+      ThemePreference.light => GazetteColors.light,
+      ThemePreference.dark => GazetteColors.dark,
+      ThemePreference.sport => GazetteColors.sport,
+      ThemePreference.system => currentColors,
+    };
+    return Material(
+      color: selected
+          ? currentColors.paperMuted.withValues(alpha: 0.62)
+          : Colors.transparent,
+      shape: RoundedRectangleBorder(
+        side: BorderSide(
+          color: selected ? currentColors.ink : currentColors.rule,
+          width: selected ? 1.5 : 1,
+        ),
+        borderRadius: BorderRadius.circular(2),
+      ),
+      child: RadioListTile<ThemePreference>(
+        value: value,
+        contentPadding: const EdgeInsets.fromLTRB(10, 4, 12, 4),
+        secondary: _ThemeSwatch(colors: preview),
+        title: Text(label, style: Theme.of(context).textTheme.labelLarge),
+        subtitle: Text(description),
+      ),
+    );
+  }
+}
+
+class _ThemeSwatch extends StatelessWidget {
+  final GazetteColors colors;
+
+  const _ThemeSwatch({required this.colors});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 42,
+      height: 42,
+      padding: const EdgeInsets.all(6),
+      decoration: BoxDecoration(
+        color: colors.paper,
+        border: Border.all(color: colors.rule),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Container(height: 4, color: colors.accent),
+          const SizedBox(height: 5),
+          Container(height: 2, color: colors.ink),
+          const SizedBox(height: 3),
+          Container(height: 2, color: colors.ink),
+          const Spacer(),
+          Row(
+            children: [
+              Expanded(child: Container(height: 2, color: colors.inkFaded)),
+              const SizedBox(width: 4),
+              Expanded(child: Container(height: 2, color: colors.inkFaded)),
+            ],
+          ),
         ],
       ),
     );
@@ -109,8 +215,9 @@ class _FontSelector extends ConsumerWidget {
     return RadioGroup<BodyFontPreference>(
       groupValue: current,
       onChanged: (choice) {
-        if (choice != null)
+        if (choice != null) {
           ref.read(bodyFontPreferenceProvider.notifier).setPreference(choice);
+        }
       },
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -221,8 +328,9 @@ class _BunkerConnectFieldState extends ConsumerState<_BunkerConnectField> {
     if (!mounted) return;
     setState(() {
       _connecting = false;
-      if (pubkey == null)
+      if (pubkey == null) {
         _error = 'Could not connect — check the bunker:// URI and try again.';
+      }
     });
   }
 
@@ -325,9 +433,10 @@ class _NwcConnectFieldState extends ConsumerState<_NwcConnectField> {
     if (!mounted) return;
     setState(() {
       _connecting = false;
-      if (!ok)
+      if (!ok) {
         _error =
             'Could not connect — check the connection string and try again.';
+      }
     });
   }
 

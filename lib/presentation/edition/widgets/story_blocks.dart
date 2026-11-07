@@ -217,14 +217,26 @@ class BriefsSection extends StatelessWidget {
 
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 20),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(border: Border.all(color: colors.rule)),
+      padding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
+      decoration: BoxDecoration(
+        color: colors.paperMuted.withValues(alpha: 0.3),
+        border: Border.all(color: colors.ink, width: 1.25),
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(title.toUpperCase(), style: theme.textTheme.labelLarge),
-          const SizedBox(height: 4),
-          Container(height: 1, color: colors.rule),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 7),
+            color: colors.ink,
+            child: Text(
+              title.toUpperCase(),
+              style: theme.textTheme.labelLarge?.copyWith(
+                color: colors.paper,
+                letterSpacing: 1.4,
+              ),
+            ),
+          ),
           for (final story in stories)
             _BriefItem(story: story, showFullContent: showFullContent),
         ],
@@ -394,57 +406,71 @@ class _StoryImageState extends State<_StoryImage> {
     // capping here — it's the axis this widget actually constrains — so
     // the decode still preserves the source aspect ratio instead of
     // distorting it.
-    final memCacheHeight = (widget.height * MediaQuery.devicePixelRatioOf(context)).round();
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(2),
-      child: SizedBox(
-        height: widget.height,
-        child: Stack(
-          alignment: Alignment.bottomCenter,
-          children: [
-            PageView.builder(
-              controller: _controller,
-              itemCount: widget.urls.length,
-              onPageChanged: (index) => setState(() => _index = index),
-              itemBuilder: (context, index) {
-                final url = widget.urls[index];
-                return GestureDetector(
-                  onTap: () => Navigator.of(context).push(
-                    FullscreenImageViewer.route(widget.urls, initialIndex: index),
-                  ),
-                  child: CachedNetworkImage(
-                    imageUrl: url,
-                    fit: BoxFit.cover,
-                    width: double.infinity,
-                    height: widget.height,
-                    memCacheHeight: memCacheHeight,
-                    placeholder: (context, url) =>
-                        Container(color: context.gazetteColors.paperMuted),
-                    errorWidget: (context, url, error) => const SizedBox.shrink(),
-                  ),
-                );
-              },
-            ),
-            if (widget.urls.length > 1)
-              Padding(
-                padding: const EdgeInsets.only(bottom: 6),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    for (var i = 0; i < widget.urls.length; i++)
-                      Container(
-                        margin: const EdgeInsets.symmetric(horizontal: 2),
-                        width: 6,
-                        height: 6,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: Colors.white.withValues(alpha: i == _index ? 0.9 : 0.4),
+    final memCacheHeight =
+        (widget.height * MediaQuery.devicePixelRatioOf(context)).round();
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        border: Border.all(color: context.gazetteColors.inkFaded),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(2),
+        child: ClipRect(
+          child: SizedBox(
+            height: widget.height,
+            child: Stack(
+              alignment: Alignment.bottomCenter,
+              children: [
+                PageView.builder(
+                  controller: _controller,
+                  itemCount: widget.urls.length,
+                  onPageChanged: (index) => setState(() => _index = index),
+                  itemBuilder: (context, index) {
+                    final url = widget.urls[index];
+                    return GestureDetector(
+                      onTap: () => Navigator.of(context).push(
+                        FullscreenImageViewer.route(
+                          widget.urls,
+                          initialIndex: index,
                         ),
                       ),
-                  ],
+                      child: CachedNetworkImage(
+                        imageUrl: url,
+                        fit: BoxFit.cover,
+                        width: double.infinity,
+                        height: widget.height,
+                        memCacheHeight: memCacheHeight,
+                        placeholder: (context, url) =>
+                            Container(color: context.gazetteColors.paperMuted),
+                        errorWidget: (context, url, error) =>
+                            const SizedBox.shrink(),
+                      ),
+                    );
+                  },
                 ),
-              ),
-          ],
+                if (widget.urls.length > 1)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 6),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        for (var i = 0; i < widget.urls.length; i++)
+                          Container(
+                            margin: const EdgeInsets.symmetric(horizontal: 2),
+                            width: 6,
+                            height: 6,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: Colors.white.withValues(
+                                alpha: i == _index ? 0.9 : 0.4,
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+              ],
+            ),
+          ),
         ),
       ),
     );

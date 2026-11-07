@@ -21,7 +21,7 @@ class EditionArchivePage extends ConsumerWidget {
     final summaries = ref.watch(archiveSummariesProvider);
     final viewer = ref.watch(savedPubkeyProvider);
     final colors = context.gazetteColors;
-
+    final sport = colors.style == GazetteVisualStyle.sport;
     return Scaffold(
       extendBodyBehindAppBar: true,
       appBar: AppBar(
@@ -31,18 +31,20 @@ class EditionArchivePage extends ConsumerWidget {
         title: Text(
           'The Relay Gazette',
           style: Theme.of(context).textTheme.headlineLarge?.copyWith(
-            fontFamily: 'UnifrakturCook',
-            fontWeight: FontWeight.normal,
+            fontFamily: sport ? 'PlayfairDisplay' : 'UnifrakturCook',
+            fontWeight: sport ? FontWeight.w900 : FontWeight.normal,
+            fontStyle: sport ? FontStyle.italic : FontStyle.normal,
             fontSize: 26,
+            color: sport ? colors.accent : colors.ink,
           ),
         ),
         actions: [
           IconButton(
             icon: const Icon(Icons.settings_outlined),
             tooltip: 'Settings',
-            onPressed: () => Navigator.of(context).push(
-              MaterialPageRoute(builder: (_) => const SettingsPage()),
-            ),
+            onPressed: () => Navigator.of(
+              context,
+            ).push(MaterialPageRoute(builder: (_) => const SettingsPage())),
           ),
         ],
       ),
@@ -52,8 +54,6 @@ class EditionArchivePage extends ConsumerWidget {
             : FloatingActionButton.extended(
                 icon: const Icon(Icons.add),
                 label: const Text('New Edition'),
-                backgroundColor: colors.ink,
-                foregroundColor: colors.paper,
                 onPressed: () => Navigator.of(context).push(
                   MaterialPageRoute(
                     builder: (_) => EditionConfigurationPage(viewer: pubkey),
@@ -116,25 +116,39 @@ class _ArchiveListState extends ConsumerState<_ArchiveList> {
 
   @override
   Widget build(BuildContext context) {
-    final summaries = widget.summaries.where((s) => !_dismissedIds.contains(s.id)).toList();
+    final summaries = widget.summaries
+        .where((s) => !_dismissedIds.contains(s.id))
+        .toList();
     final grouped = _groupByShelf(summaries);
     final colors = context.gazetteColors;
 
     return ListView.builder(
-      padding: EdgeInsets.fromLTRB(0, kToolbarHeight + 12, 0, 96),
-      itemCount: grouped.length,
+      padding: EdgeInsets.fromLTRB(0, kToolbarHeight + 20, 0, 112),
+      itemCount: grouped.length + 1,
       itemBuilder: (context, index) {
-        final entry = grouped[index];
+        if (index == 0) {
+          return _ArchiveHeader(editionCount: summaries.length);
+        }
+        final entry = grouped[index - 1];
         if (entry.isHeader) {
           return Padding(
-            padding: const EdgeInsets.fromLTRB(20, 20, 20, 8),
-            child: Text(
-              entry.header!,
-              style: Theme.of(context).textTheme.labelLarge,
+            padding: const EdgeInsets.fromLTRB(20, 28, 20, 10),
+            child: Row(
+              children: [
+                Text(
+                  entry.header!,
+                  style: Theme.of(
+                    context,
+                  ).textTheme.labelLarge?.copyWith(color: colors.accent),
+                ),
+                const SizedBox(width: 12),
+                Expanded(child: Container(height: 1, color: colors.rule)),
+              ],
             ),
           );
         }
         final summary = entry.summary!;
+        final issueNumber = summaries.length - summaries.indexOf(summary);
         return Dismissible(
           key: ValueKey(summary.id),
           direction: DismissDirection.endToStart,
@@ -150,14 +164,9 @@ class _ArchiveListState extends ConsumerState<_ArchiveList> {
               ref.invalidate(archiveSummariesProvider);
             });
           },
-          child: ListTile(
-            title: Text(
-              DateFormat('EEEE, MMMM d').format(summary.generatedAt.toLocal()),
-            ),
-            subtitle: Text(
-              '${summary.storyCount} stories · ${summary.source.label}',
-            ),
-            trailing: Icon(Icons.chevron_right, color: colors.inkFaded),
+          child: _ArchiveIssueTile(
+            summary: summary,
+            issueNumber: issueNumber,
             onTap: () async {
               final edition = await ref.read(
                 editionByIdProvider(summary.id).future,
@@ -172,6 +181,131 @@ class _ArchiveListState extends ConsumerState<_ArchiveList> {
           ),
         );
       },
+    );
+  }
+}
+
+class _ArchiveHeader extends StatelessWidget {
+  final int editionCount;
+
+  const _ArchiveHeader({required this.editionCount});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colors = context.gazetteColors;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 18, 20, 10),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'THE EDITION ARCHIVE',
+            style: theme.textTheme.labelMedium?.copyWith(
+              color: colors.accent,
+              fontWeight: FontWeight.w800,
+              letterSpacing: 2,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Your papers, kept in order.',
+            style: theme.textTheme.headlineLarge,
+          ),
+          const SizedBox(height: 8),
+          Text(
+            '$editionCount ${editionCount == 1 ? 'edition' : 'editions'} on the shelf. '
+            'Each one is a finite snapshot of your network.',
+            style: theme.textTheme.bodyMedium?.copyWith(color: colors.inkFaded),
+          ),
+          const SizedBox(height: 18),
+          Container(height: 3, color: colors.ink),
+          const SizedBox(height: 3),
+          Container(height: 1, color: colors.ink),
+        ],
+      ),
+    );
+  }
+}
+
+class _ArchiveIssueTile extends StatelessWidget {
+  final GazetteEditionSummary summary;
+  final int issueNumber;
+  final VoidCallback onTap;
+
+  const _ArchiveIssueTile({
+    required this.summary,
+    required this.issueNumber,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colors = context.gazetteColors;
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 5),
+      child: Material(
+        color: colors.paperMuted.withValues(alpha: 0.38),
+        shape: RoundedRectangleBorder(
+          side: BorderSide(color: colors.rule),
+          borderRadius: BorderRadius.circular(2),
+        ),
+        child: InkWell(
+          onTap: onTap,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(14, 14, 12, 14),
+            child: Row(
+              children: [
+                Container(
+                  width: 48,
+                  height: 54,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    border: Border.all(color: colors.ink),
+                  ),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text('NO.', style: theme.textTheme.labelSmall),
+                      Text(
+                        '$issueNumber',
+                        style: theme.textTheme.headlineSmall?.copyWith(
+                          height: 1,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        DateFormat(
+                          'EEEE, MMMM d',
+                        ).format(summary.generatedAt.toLocal()),
+                        style: theme.textTheme.headlineSmall,
+                      ),
+                      const SizedBox(height: 5),
+                      Text(
+                        '${summary.storyCount} STORIES  ·  '
+                        '${summary.source.label.toUpperCase()}',
+                        style: theme.textTheme.labelSmall?.copyWith(
+                          color: colors.inkFaded,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Icon(Icons.arrow_forward, size: 18, color: colors.accent),
+              ],
+            ),
+          ),
+        ),
+      ),
     );
   }
 }
